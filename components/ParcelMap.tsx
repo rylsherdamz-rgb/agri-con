@@ -90,7 +90,8 @@ export default function ParcelMap({
   const rectangleRef = useRef<any>(null);
 
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID ?? "";
+  // Fall back to DEMO_MAP_ID to allow Advanced Markers to render if env is missing
+  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
 
   // Initialize the Base Map Canvas Instance
   useEffect(() => {
@@ -100,7 +101,6 @@ export default function ParcelMap({
       const w = window as unknown as GoogleWindow;
       if (!w.google?.maps || !ref.current) return;
 
-      // Determine initial center fallback point safely based on loaded data markers
       const initialCenter = markers.length > 0
         ? { lat: markers[0].lat, lng: markers[0].lng }
         : { lat: 14.5995, lng: 120.9842 };
@@ -108,7 +108,7 @@ export default function ParcelMap({
       const instance = new w.google.maps.Map(ref.current, {
         center: initialCenter,
         zoom: 12,
-        mapId: mapId || undefined,
+        mapId: mapId,
         mapTypeControl: false,
         fullscreenControl: false,
         streetViewControl: false,
@@ -116,7 +116,6 @@ export default function ParcelMap({
 
       mapRef.current = instance;
 
-      // Render all loaded marker nodes onto the ecosystem grid
       const AdvancedMarkerElement = w.google.maps.marker?.AdvancedMarkerElement;
       if (AdvancedMarkerElement) {
         markers.forEach((m) => {
@@ -127,7 +126,8 @@ export default function ParcelMap({
             gmpClickable: true,
           });
 
-          advMarker.addListener("click", () => {
+          // Fixed: Changed from 'click' to 'gmp-click' for modern advanced markers
+          advMarker.addListener("gmp-click", () => {
             onSelectMarker(m.id);
           });
         });
@@ -143,7 +143,6 @@ export default function ParcelMap({
     const w = window as unknown as GoogleWindow;
     const activeTarget = markers.find((m) => m.id === activeMarkerId);
 
-    // Clear active container box completely if drawer closes
     if (!activeTarget) {
       if (rectangleRef.current) {
         rectangleRef.current.setMap(null);
@@ -156,7 +155,6 @@ export default function ParcelMap({
     instance.panTo(targetCoords);
     instance.setZoom(13);
 
-    // If canvas polygon exists, clean redraw boundary geometry bounds around center
     if (rectangleRef.current) {
       rectangleRef.current.setBounds({
         north: targetCoords.lat + 0.05,
@@ -165,7 +163,6 @@ export default function ParcelMap({
         west: targetCoords.lng - 0.05,
       });
     } else if (w.google?.maps) {
-      // Create new editable bounding box instance
       const rectangle = new w.google.maps.Rectangle({
         map: instance,
         bounds: {
@@ -199,5 +196,6 @@ export default function ParcelMap({
     }
   }, [activeMarkerId, markers, onBoundsChange]);
 
-  return <div ref={ref} className="h-full w-full min-h-[500px]" />;
+  // Fixed: Removed absolute height pixel limits (min-h-[500px]) to respect parent canvas coordinates
+  return <div ref={ref} className="h-full w-full" />;
 }

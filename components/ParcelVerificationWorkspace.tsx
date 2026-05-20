@@ -13,7 +13,7 @@ type LandParcel = {
 };
 
 type Props = {
-  parcels: LandParcel[]; // Array of farm markers passed from your data layer
+  parcels: LandParcel[];
 };
 
 function round(value: number) {
@@ -23,8 +23,6 @@ function round(value: number) {
 export default function ParcelVerificationWorkspace({ parcels }: Props) {
   const [selectedParcel, setSelectedParcel] = useState<LandParcel | null>(null);
   const [aiQuery, setAiQuery] = useState("");
-
-  // Track bbox dimensions locally when the farmer drags the handles on screen
   const [bbox, setBbox] = useState({ west: 0, south: 0, east: 0, north: 0 });
 
   const approxKmWidth = selectedParcel ? ((bbox.east - bbox.west) * 111).toFixed(1) : "0.0";
@@ -38,7 +36,6 @@ export default function ParcelVerificationWorkspace({ parcels }: Props) {
     if (!match) return;
 
     setSelectedParcel(match);
-    // Initialize default bounding box around chosen parcel (~10km grid default)
     setBbox({
       west: round(match.lng - 0.05),
       south: round(match.lat - 0.05),
@@ -56,9 +53,9 @@ export default function ParcelVerificationWorkspace({ parcels }: Props) {
   };
 
   return (
-    <section className="relative border h-[calc(100vh-4rem)] w-full overflow-hidden bg-stone-100 rounded-2xl border border-stone-200 shadow-sm flex">
-      {/* 1. Full-Space Central Map Workspace */}
-      <div className="flex-1 h-full w-full relative">
+    <section className="relative h-[calc(100vh-4rem)] w-full overflow-hidden bg-stone-100 rounded-2xl border border-stone-200 shadow-sm">
+      {/* 1. Full space Map Layer - Set to absolute to guarantee 100% coverage */}
+      <div className="absolute inset-0 z-0 h-full w-full">
         <ParcelMap
           markers={parcels}
           activeMarkerId={selectedParcel?.id}
@@ -70,32 +67,31 @@ export default function ParcelVerificationWorkspace({ parcels }: Props) {
             north: round(bounds.north),
           })}
         />
-
-        {/* Dynamic Float Banner overlay showing active scanning size status */}
-        {selectedParcel && (
-          <div className="absolute top-4 left-4 z-10 flex gap-4 text-sm bg-white/95 backdrop-blur border border-stone-200 rounded-xl p-3 shadow-md">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Scanner Size</span>
-              <span className="font-bold text-stone-800">{approxKmWidth} x {approxKmHeight} km</span>
-            </div>
-            <div className="border-l border-stone-200 pl-4">
-              <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Calculated Area</span>
-              <span className="font-bold text-emerald-600">{estimatedAcres.toLocaleString()} Acres</span>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* 2. Slide-out Control Drawer Sidebar */}
+      {/* Dynamic Status Overlay - Floating over the map layout */}
+      {selectedParcel && (
+        <div className="absolute top-4 left-4 z-10 flex gap-4 text-sm bg-white/95 backdrop-blur border border-stone-200 rounded-xl p-3 shadow-md pointer-events-auto">
+          <div>
+            <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Scanner Size</span>
+            <span className="font-bold text-stone-800">{approxKmWidth} x {approxKmHeight} km</span>
+          </div>
+          <div className="border-l border-stone-200 pl-4">
+            <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Calculated Area</span>
+            <span className="font-bold text-emerald-600">{estimatedAcres.toLocaleString()} Acres</span>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Slide-out Control Sidebar Panel */}
       <div
-        className={`absolute lg:relative top-0 right-0 h-full w-full max-w-sm sm:max-w-md bg-stone-900 border-l border-stone-800 shadow-2xl p-6 text-stone-100 flex flex-col justify-between transition-transform duration-300 ease-in-out z-20 ${
-          selectedParcel ? "translate-x-0" : "translate-x-full lg:hidden"
+        className={`absolute top-0 right-0 h-full w-full max-w-sm sm:max-w-md bg-stone-900 border-l border-stone-800 shadow-2xl p-6 text-stone-100 flex flex-col justify-between transition-transform duration-300 ease-in-out z-20 ${
+          selectedParcel ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        {selectedParcel ? (
+        {selectedParcel && (
           <div className="flex flex-col h-full justify-between">
             <div className="space-y-6 overflow-y-auto pr-1">
-              {/* Drawer Dismiss Control Header */}
               <div className="flex items-start justify-between border-b border-stone-800 pb-4">
                 <div>
                   <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Selected Farmstead</span>
@@ -110,7 +106,6 @@ export default function ParcelVerificationWorkspace({ parcels }: Props) {
                 </button>
               </div>
 
-              {/* Assessment Context Card */}
               <div className="bg-stone-950/50 rounded-xl p-4 border border-stone-800/80 space-y-2.5">
                 <div className="flex justify-between text-xs sm:text-sm">
                   <span className="text-stone-400">Time-window:</span>
@@ -126,7 +121,6 @@ export default function ParcelVerificationWorkspace({ parcels }: Props) {
                 </div>
               </div>
 
-              {/* Farmer Friendly Instructions Indicator */}
               <div className="rounded-xl bg-emerald-950/30 border border-emerald-800/20 p-4">
                 <div className="flex gap-2.5 items-center">
                   <span className="text-emerald-400 text-lg">💡</span>
@@ -136,7 +130,6 @@ export default function ParcelVerificationWorkspace({ parcels }: Props) {
                 </div>
               </div>
 
-              {/* Context-aware Farm AI Box */}
               <div className="rounded-xl border border-stone-800 bg-stone-950 p-4 space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm">✨</span>
@@ -161,7 +154,6 @@ export default function ParcelVerificationWorkspace({ parcels }: Props) {
               </div>
             </div>
 
-            {/* Satellite Attestation Execution Point */}
             <div className="mt-6 pt-4 border-t border-stone-800">
               <SatelliteVerificationPanel
                 nftId={selectedParcel.id}
@@ -171,10 +163,6 @@ export default function ParcelVerificationWorkspace({ parcels }: Props) {
                 sampleGridSize={20}
               />
             </div>
-          </div>
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center text-center text-stone-500 text-sm">
-            Select a point marker on the field workspace map to execute land parameter verification.
           </div>
         )}
       </div>
