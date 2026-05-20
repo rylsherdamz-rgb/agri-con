@@ -1,0 +1,62 @@
+services:
+  - type: web
+    name: agri-con-frontend
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_URL
+        value: "https://agri-con-backend.onrender.com"
+      - key: NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE
+        sync: false
+      - key: NEXT_PUBLIC_CROP_NFT_CONTRACT_ID
+        sync: false
+      - key: NEXT_PUBLIC_ESCROW_CONTRACT_ID
+        sync: false
+      - key: NEXT_PUBLIC_VERIFICATION_CONTRACT_ID
+        sync: false
+      - key: NEXT_PUBLIC_USDC_TOKEN_CONTRACT_ID
+        sync: false
+      - key: NEXT_PUBLIC_TREASURY_ADDRESS
+        sync: false
+      - key: NEXT_PUBLIC_ORACLE_ADDRESS
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_ACTIVE_NFT_IDS
+        value: "1"
+      - key: ACTIVE_NFT_IDS
+        value: "1"
+      - key: FARMER_ADDRESSES
+        value: ""
+      - key: STELLAR_RPC_URL
+        value: "https://soroban-testnet.stellar.org"
+      - key: STELLAR_HORIZON_URL
+        value: "https://horizon-testnet.stellar.org"
+
+  - type: web
+    name: agri-con-backend
+    runtime: node
+    plan: free
+    buildCommand: cd backend && npm ci
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENEO_CLIENT_ID
+        sync: false
+      - key: OPENEO_CLIENT_SECRET
+        sync: false
+      - key: GCP_FARMER_ID_BUCKET
+        sync: false
+      - key: GCP_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: OPENEO_BASE_URL
+        value: "https://openeo.dataspace.copernicus.eu"
+      - key: OPENEO_SH_BASE_URL
+        value: "https://openeosh.dataspace.copernicus.eu"

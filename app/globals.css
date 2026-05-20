@@ -1,42 +1,71 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f8faf6;
-  --foreground: #1f2937;
-  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  --font-body: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
-  --font-code: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", monospace;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-body);
-  --font-mono: var(--font-code);
+  --color-background: #f8faf6;
+  --color-foreground: #1f2937;
+  --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-mono: "SFMono-Regular", "Cascadia Code", "JetBrains Mono", monospace;
+  --color-farm-50: #f0fdf4;
+  --color-farm-100: #dcfce7;
+  --color-farm-200: #bbf7d0;
+  --color-farm-300: #86efac;
+  --color-farm-400: #4ade80;
+  --color-farm-500: #22c55e;
+  --color-farm-600: #16a34a;
+  --color-farm-700: #15803d;
+  --color-farm-800: #166534;
+  --color-farm-900: #14532d;
+  --color-farm-950: #052e16;
+  --color-harvest-50: #fffbeb;
+  --color-harvest-100: #fef3c7;
+  --color-harvest-500: #f59e0b;
+  --color-harvest-600: #d97706;
+  --color-harvest-700: #b45309;
+  --color-soil-50: #faf5f0;
+  --color-soil-100: #f5ebe0;
+  --color-soil-500: #a47148;
+  --color-soil-600: #8b5e3c;
+  --color-soil-700: #6b4423;
 }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-body), sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), sans-serif;
   background-image:
-    radial-gradient(circle at top left, rgba(190, 242, 100, 0.22), transparent 22rem),
-    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.12), transparent 26rem),
+    radial-gradient(circle at top left, rgba(190,242,100,0.18), transparent 24rem),
+    radial-gradient(circle at bottom right, rgba(22,163,74,0.08), transparent 28rem),
     linear-gradient(180deg, #f7f8f2 0%, #f4f5f1 100%);
 }
 
-::selection {
-  background: #14532d;
-  color: #f7fee7;
+::selection { background: #14532d; color: #f7fee7; }
+
+h1, h2, h3, h4 { font-family: var(--font-display), serif; }
+
+.card-farm {
+  @apply rounded-2xl border border-farm-200/60 bg-white shadow-sm;
 }
 
-h1,
-h2,
-h3,
-h4 {
-  font-family: var(--font-display), serif;
+.card-hover {
+  @apply transition hover:border-farm-300 hover:shadow-md;
 }
+
+.btn-primary {
+  @apply inline-flex items-center gap-2 rounded-xl bg-farm-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-farm-800 active:scale-[0.97];
+}
+
+.btn-outline {
+  @apply inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 shadow-sm transition hover:border-farm-400 hover:text-farm-800 active:scale-[0.97];
+}
+
+.badge-buyable { @apply inline-flex items-center gap-1 rounded-full bg-farm-100 px-2.5 py-0.5 text-xs font-medium text-farm-700; }
+.badge-pending { @apply inline-flex items-center gap-1 rounded-full bg-harvest-100 px-2.5 py-0.5 text-xs font-medium text-harvest-700; }
+.badge-alert  { @apply inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-600; }
+
+.nft-step { @apply flex items-center gap-3 rounded-xl border px-4 py-3 transition; }
+.nft-step-active { @apply border-farm-400 bg-farm-50 text-farm-800 shadow-sm; }
+.nft-step-done { @apply border-farm-200 bg-white text-farm-700; }
+.nft-step-idle { @apply border-stone-200 bg-white text-stone-400; }

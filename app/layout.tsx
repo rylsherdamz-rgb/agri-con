@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
+import FloatingAIButton from "@/components/FloatingAIButtont";
 
 export const metadata: Metadata = {
   title: "Agri-Block | HarvestLock",
@@ -16,7 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <FloatingAIButton />
+        </Providers>
       </body>
     </html>
   );

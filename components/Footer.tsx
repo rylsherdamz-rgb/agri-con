@@ -13,17 +13,17 @@ export default function Footer() {
           </p>
         </div>
         <div className="grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
-          <a className="transition hover:text-lime-200" href="/overview">
-            Overview
+          <a className="transition hover:text-lime-200" href="/dashboard">
+            Dashboard
           </a>
           <a className="transition hover:text-lime-200" href="/marketplace">
             Marketplace
           </a>
-          <a className="transition hover:text-lime-200" href="/parcel">
-            Parcel verification
+          <a className="transition hover:text-lime-200" href="/explore">
+            Parcel Verification
           </a>
-          <a className="transition hover:text-lime-200" href="/insights">
-            Insights
+          <a className="transition hover:text-lime-200" href="/profile">
+            Profile
           </a>
         </div>
       </div>
