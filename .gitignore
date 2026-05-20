@@ -1,7 +1,7 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/node_modules
+node_modules/
 /contracts
 /.pnp
 .pnp.*
@@ -24,6 +24,17 @@ chathistory.md
 /build
 /.agents/
 
+# large binaries / uploads
+public/*.jpg
+public/*.jpeg
+public/*.png
+public/*.gif
+public/*.mp4
+public/*.webm
+*.zip
+*.tar.gz
+*.7z
+
 # misc
 .DS_Store
 *.pem
@@ -44,3 +55,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# prisma cache
+.prisma/
+*.db-journal
