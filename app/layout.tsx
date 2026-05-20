@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
 import FloatingAIButton from "@/components/FloatingAIButtont";
+import Walkthrough from "@/components/Walkthrough";
 
 export const metadata: Metadata = {
   title: "Agri-Block | HarvestLock",
@@ -20,6 +21,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <FloatingAIButton />
+          <Walkthrough />
         </Providers>
       </body>
     </html>

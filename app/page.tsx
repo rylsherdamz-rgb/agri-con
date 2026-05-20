@@ -3,7 +3,7 @@ import NavigationBar from "@/components/NavigationBar";
 import HeroComponent from "@/components/HeroComponent";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
 import Link from "next/link";
-import { Sprout, ShieldCheck, ArrowRight } from "lucide-react";
+import { Sprout, ShieldCheck, ArrowRight, User, ShoppingBag } from "lucide-react";
 
 export default function Home() {
   return (
@@ -26,62 +26,84 @@ export default function Home() {
               and settled on-chain with USDC.
             </p>
           </div>
-
           <div className="overflow-x-auto pb-4">
             <NFTLifecycleFlow current="minted" />
           </div>
         </section>
 
-        {/* For Farmers / For Buyers split */}
+        {/* I am a... (Role selector) */}
         <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+          <h2 className="mb-6 text-center font-display text-xl font-bold text-stone-900 sm:text-2xl">
+            I am a...
+          </h2>
           <div className="grid gap-6 sm:grid-cols-2">
+            {/* Farmer card */}
             <div className="card-farm card-hover p-6 sm:p-8">
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-farm-100 text-farm-700">
                 <Sprout size={24} />
               </div>
-              <h3 className="font-display text-lg font-bold text-stone-900">For Farmers</h3>
+              <h3 className="font-display text-lg font-bold text-stone-900">Farmer</h3>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-farm-700">
+                I grow crops and want to sell them
+              </p>
               <p className="mt-2 text-sm leading-relaxed text-stone-500">
-                Mint your crop as an NFT and get paid upfront when a buyer reserves it.
-                Satellite data verifies your harvest so you never need paperwork.
+                Mint your harvest as a Crop NFT and get paid upfront when a buyer reserves it. 
+                Satellite data verifies your crop so you never need paperwork.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-stone-600">
                 <li className="flex items-center gap-2">
-                  <span className="text-farm-600">&#10003;</span> Get 20% payment upfront
+                  <span className="text-farm-600 font-bold">1.</span> Register your farm profile
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-farm-600">&#10003;</span> Satellite-verified harvests
+                  <span className="text-farm-600 font-bold">2.</span> Upload ID for verification
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-farm-600">&#10003;</span> 10% treasury pool protects against disasters
+                  <span className="text-farm-600 font-bold">3.</span> Select your parcel & run satellite check
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-farm-600 font-bold">4.</span> Mint Crop NFT & list on marketplace
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-farm-600 font-bold">5.</span> Get 20% upfront, 70% on delivery
                 </li>
               </ul>
               <Link href="/profile" className="btn-primary mt-6">
-                Register as Farmer <ArrowRight size={14} />
+                <User size={14} /> Register as Farmer <ArrowRight size={14} />
               </Link>
             </div>
 
+            {/* Buyer card */}
             <div className="card-farm card-hover p-6 sm:p-8">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-farm-100 text-farm-700">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-harvest-100 text-harvest-700">
                 <ShieldCheck size={24} />
               </div>
-              <h3 className="font-display text-lg font-bold text-stone-900">For Buyers</h3>
+              <h3 className="font-display text-lg font-bold text-stone-900">Buyer</h3>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-harvest-700">
+                I want to buy verified crops
+              </p>
               <p className="mt-2 text-sm leading-relaxed text-stone-500">
                 Browse verified crop parcels with real NDVI satellite data. Your USDC is
                 held in escrow until delivery — no risk, full transparency.
               </p>
               <ul className="mt-4 space-y-2 text-sm text-stone-600">
                 <li className="flex items-center gap-2">
-                  <span className="text-farm-600">&#10003;</span> Every parcel is satellite-verified
+                  <span className="text-harvest-600 font-bold">1.</span> Browse marketplace with satellite data
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-farm-600">&#10003;</span> Funds held in escrow until delivery
+                  <span className="text-harvest-600 font-bold">2.</span> View NDVI health scores & AI analysis
                 </li>
                 <li className="flex items-center gap-2">
-                  <span className="text-farm-600">&#10003;</span> Full refund if crop fails
+                  <span className="text-harvest-600 font-bold">3.</span> Purchase with USDC — funds held in escrow
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-harvest-600 font-bold">4.</span> Track delivery & settlement
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-harvest-600 font-bold">5.</span> Full refund if crop fails (treasury backed)
                 </li>
               </ul>
-              <Link href="/marketplace" className="btn-primary mt-6">
-                Browse Marketplace <ArrowRight size={14} />
+              <Link href="/marketplace" className="btn-primary mt-6 bg-harvest-700 hover:bg-harvest-600">
+                <ShoppingBag size={14} /> Browse Marketplace <ArrowRight size={14} />
               </Link>
             </div>
           </div>

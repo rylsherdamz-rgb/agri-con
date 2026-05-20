@@ -3,20 +3,30 @@
 import { useEffect, useState } from "react";
 import { useWallet } from "@/components/stellar/wallet-context";
 import NavigationBar from "@/components/NavigationBar";
-import { CheckCircle, XCircle, User, Upload, Loader2, QrCode, BadgeCheck, Plus, ShieldAlert } from "lucide-react";
+import { CheckCircle, XCircle, User, Upload, Loader2, BadgeCheck, Plus, ShieldAlert, Sprout, MapPin } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
-import { getLiveFarmerProfiles, type LiveFarmerProfile } from "@/lib/stellar/live-data";
 import Link from "next/link";
 
+type FarmerProfile = {
+  farmer: string;
+  fullName: string;
+  farmName: string;
+  region: string;
+  governmentIdObject: string;
+  verified: boolean;
+  totalYieldKg: number;
+  updatedAt: number;
+};
+
 export default function ProfilePage() {
-  const { address } = useWallet();
-  const [profile, setProfile] = useState<LiveFarmerProfile | null>(null);
+  const { address, connect } = useWallet();
+  const [profile, setProfile] = useState<FarmerProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [form, setForm] = useState({ fullName: "", farmName: "", region: "", totalYieldKg: "" });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [uploadMessage, setUploadMessage] = useState("");
+  const [uploadMsg, setUploadMsg] = useState("");
 
   useEffect(() => {
     if (!address) return;
@@ -25,21 +35,27 @@ export default function ProfilePage() {
     async function fetchProfile() {
       setLoading(true);
       try {
-        const profiles = await getLiveFarmerProfiles();
-        const match = profiles.find((p) => p.farmer === address);
-        if (match) {
-          setProfile(match);
+        const res = await fetch("/api/stellar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get_farmer_profile", farmerAddress: address }),
+          signal: ctrl.signal,
+        });
+        const data = await res.json();
+        if (!ctrl.signal.aborted && data.ok) {
+          setProfile(data.profile);
           setForm({
-            fullName: match.fullName || "",
-            farmName: match.farmName || "",
-            region: match.region || "",
-            totalYieldKg: String(match.totalYieldKg || ""),
+            fullName: data.profile?.fullName || "",
+            farmName: data.profile?.farmName || "",
+            region: data.profile?.region || "",
+            totalYieldKg: String(data.profile?.totalYieldKg || ""),
           });
         }
       } catch {} finally {
         if (!ctrl.signal.aborted) setLoading(false);
       }
     }
+
     fetchProfile();
     return () => ctrl.abort();
   }, [address]);
@@ -73,6 +89,7 @@ export default function ProfilePage() {
           updatedAt: Math.floor(Date.now() / 1000),
         });
         setEditMode(false);
+        alert("Profile saved! Sign the transaction in your wallet.");
       }
     } catch {} finally {
       setSaving(false);
@@ -82,7 +99,7 @@ export default function ProfilePage() {
   async function handleIdUpload(file: File) {
     if (!address) return;
     setUploading(true);
-    setUploadMessage("");
+    setUploadMsg("");
     try {
       const res = await fetch("/api/farmer-id/upload-url", {
         method: "POST",
@@ -91,26 +108,37 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.ok && data.uploadUrl) {
-        await fetch(data.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-        setUploadMessage("ID uploaded. Awaiting verification.");
+        const putRes = await fetch(data.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+        if (putRes.ok) {
+          setUploadMsg("ID uploaded successfully. Awaiting verification.");
+        } else {
+          setUploadMsg("Upload failed. Check your GCS bucket configuration.");
+        }
+      } else {
+        setUploadMsg("Could not get upload URL. GCP bucket may not be configured.");
       }
     } catch {
-      setUploadMessage("Upload failed. Try again.");
+      setUploadMsg("Network error. Try again.");
     } finally {
       setUploading(false);
     }
   }
 
   const isVerified = profile?.verified ?? false;
+  const hasProfile = profile !== null && profile.fullName;
 
   if (!address) {
     return (
       <div className="flex min-h-screen flex-col bg-stone-50">
         <NavigationBar />
         <main className="flex flex-1 items-center justify-center">
-          <div className="card-farm p-10 text-center">
+          <div className="card-farm p-10 text-center max-w-sm">
             <User size={40} className="mx-auto mb-3 text-stone-300" />
             <p className="text-sm font-medium text-stone-500">Connect your wallet to view your profile</p>
+            <p className="mt-1 text-xs text-stone-400">Use Freighter or XBull on Stellar Testnet</p>
+            <button onClick={connect} className="btn-primary mt-4 w-full justify-center">
+              Connect Wallet
+            </button>
           </div>
         </main>
       </div>
@@ -121,13 +149,20 @@ export default function ProfilePage() {
     <div className="flex min-h-screen flex-col bg-stone-50">
       <NavigationBar />
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <h1 className="font-display text-2xl font-bold tracking-tight text-stone-900">
-            Farmer Profile
-          </h1>
-          <p className="mt-1 text-sm text-stone-500">
-            Manage your on-chain identity and farming credentials
-          </p>
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-stone-900">
+              {hasProfile ? "My Farm" : "Register Your Farm"}
+            </h1>
+            <p className="mt-1 text-sm text-stone-500">
+              {hasProfile ? "Manage your on-chain identity" : "Create your farmer profile to list crops"}
+            </p>
+          </div>
+          {isVerified && (
+            <Link href="/explore" className="btn-primary">
+              <Plus size={16} /> List a Crop
+            </Link>
+          )}
         </div>
 
         {loading ? (
@@ -153,22 +188,22 @@ export default function ProfilePage() {
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="text-lg font-bold text-stone-900">
-                          {profile?.fullName || "Unregistered Farmer"}
+                          {profile?.fullName || "New Farmer"}
                         </p>
                         {isVerified ? (
                           <span className="badge-buyable"><CheckCircle size={12} /> Verified</span>
-                        ) : (
+                        ) : hasProfile ? (
                           <span className="badge-pending"><XCircle size={12} /> Pending</span>
-                        )}
+                        ) : null}
                       </div>
                       <p className="text-xs text-stone-400">
-                        {profile?.farmName || "No farm"} &middot; {profile?.region || "No region"}
+                        {profile?.farmName || "No farm"} {profile?.region && `· ${profile.region}`}
                       </p>
                     </div>
                   </div>
                   {!editMode && (
                     <button onClick={() => setEditMode(true)} className="btn-outline text-xs">
-                      Edit Profile
+                      {hasProfile ? "Edit" : "Create Profile"}
                     </button>
                   )}
                 </div>
@@ -187,37 +222,43 @@ export default function ProfilePage() {
                         className="mt-1 w-full rounded-xl border border-stone-200 px-3.5 py-2 text-sm outline-none focus:border-farm-400"
                         placeholder="Green Valley Farm" />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-stone-500">Region</label>
-                      <input type="text" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}
-                        className="mt-1 w-full rounded-xl border border-stone-200 px-3.5 py-2 text-sm outline-none focus:border-farm-400"
-                        placeholder="Bicol" />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-stone-500">Region</label>
+                        <input type="text" value={form.region} onChange={(e) => setForm({ ...form, region: e.target.value })}
+                          className="mt-1 w-full rounded-xl border border-stone-200 px-3.5 py-2 text-sm outline-none focus:border-farm-400"
+                          placeholder="Bicol" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-stone-500">Total Yield (kg)</label>
+                        <input type="number" value={form.totalYieldKg} onChange={(e) => setForm({ ...form, totalYieldKg: e.target.value })}
+                          className="mt-1 w-full rounded-xl border border-stone-200 px-3.5 py-2 text-sm outline-none focus:border-farm-400"
+                          placeholder="5000" />
+                      </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={() => setEditMode(false)} className="flex-1 rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-50">
-                        Cancel
-                      </button>
+                      <button onClick={() => setEditMode(false)} className="flex-1 rounded-xl border border-stone-200 px-4 py-2.5 text-sm font-medium text-stone-600 hover:bg-stone-50">Cancel</button>
                       <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 justify-center">
                         {saving ? <Loader2 size={16} className="animate-spin" /> : "Save Profile"}
                       </button>
                     </div>
                   </div>
-                ) : profile ? (
+                ) : hasProfile ? (
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="rounded-xl bg-stone-50 p-3">
                       <p className="text-xs text-stone-500">Total Yield</p>
-                      <p className="text-lg font-bold tabular-nums text-stone-900">{profile.totalYieldKg.toLocaleString()} kg</p>
+                      <p className="text-lg font-bold tabular-nums text-stone-900">{profile!.totalYieldKg.toLocaleString()} kg</p>
                     </div>
                     <div className="rounded-xl bg-stone-50 p-3">
                       <p className="text-xs text-stone-500">Region</p>
-                      <p className="text-lg font-bold text-stone-900">{profile.region || "—"}</p>
+                      <p className="text-lg font-bold text-stone-900">{profile!.region || "—"}</p>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center py-8">
-                    <User size={28} className="mb-2 text-stone-300" />
-                    <p className="text-sm text-stone-400">No profile yet</p>
-                    <button onClick={() => setEditMode(true)} className="btn-primary mt-3">Create Profile</button>
+                    <Sprout size={28} className="mb-2 text-stone-300" />
+                    <p className="text-sm text-stone-400">Create your profile to start listing crops</p>
+                    <button onClick={() => setEditMode(true)} className="btn-primary mt-3">Get Started</button>
                   </div>
                 )}
               </div>
@@ -225,8 +266,10 @@ export default function ProfilePage() {
               {/* ID Upload */}
               <div className="card-farm p-6">
                 <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-stone-600">Government ID</h3>
-                {uploadMessage && (
-                  <p className="mb-3 text-xs font-medium text-farm-700 bg-farm-50 rounded-lg px-3 py-2">{uploadMessage}</p>
+                {uploadMsg && (
+                  <p className={`mb-3 rounded-lg px-3 py-2 text-xs font-medium ${uploadMsg.includes("success") ? "bg-farm-50 text-farm-700" : "bg-harvest-50 text-harvest-700"}`}>
+                    {uploadMsg}
+                  </p>
                 )}
                 <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-8 transition hover:border-farm-400 hover:bg-farm-50/30">
                   <Upload size={22} className="text-stone-400" />
@@ -239,6 +282,9 @@ export default function ProfilePage() {
                   <input type="file" accept="image/png,image/jpeg,application/pdf" className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleIdUpload(f); }} />
                 </label>
+                {profile?.governmentIdObject && (
+                  <p className="mt-2 text-xs text-stone-400">Uploaded: {truncate(profile.governmentIdObject, 24)}</p>
+                )}
               </div>
             </div>
 
@@ -247,31 +293,36 @@ export default function ProfilePage() {
               {/* Wallet card */}
               <div className="card-farm p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Wallet</p>
-                <div className="mt-3 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-farm-100 text-farm-700">
-                    <QrCode size={18} />
-                  </div>
-                  <p className="font-mono text-xs text-stone-600 break-all">{truncate(address, 16)}</p>
-                </div>
+                <p className="mt-2 break-all font-mono text-xs text-stone-600">{truncate(address, 18)}</p>
+                <p className="mt-1 text-[10px] text-stone-400">Stellar Testnet</p>
               </div>
 
-              {/* Verification status */}
+              {/* Verification card */}
               <div className="card-farm p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Status</p>
                 {isVerified ? (
                   <div className="mt-3 rounded-xl bg-farm-50 px-4 py-3 text-center">
                     <BadgeCheck size={24} className="mx-auto mb-1 text-farm-600" />
                     <p className="text-sm font-semibold text-farm-800">Verified Farmer</p>
-                    <p className="text-xs text-farm-600">You can list crops on the marketplace</p>
+                    <p className="text-xs text-farm-600">You can now list crops on the marketplace</p>
                     <Link href="/explore" className="btn-primary mt-3 text-xs w-full justify-center">
                       <Plus size={14} /> List a Crop
                     </Link>
+                    <Link href="/order" className="mt-2 block text-xs font-medium text-farm-700 hover:underline">
+                      View My Orders →
+                    </Link>
                   </div>
-                ) : (
+                ) : hasProfile ? (
                   <div className="mt-3 rounded-xl bg-harvest-50 px-4 py-3 text-center">
                     <ShieldAlert size={24} className="mx-auto mb-1 text-harvest-600" />
                     <p className="text-sm font-semibold text-harvest-800">Awaiting Verification</p>
-                    <p className="text-xs text-harvest-600">Upload your ID above. Only verified farmers can list crops.</p>
+                    <p className="text-xs text-harvest-600">Only verified farmers can list crops. Upload your ID above.</p>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-xl bg-stone-50 px-4 py-3 text-center">
+                    <User size={24} className="mx-auto mb-1 text-stone-400" />
+                    <p className="text-sm font-medium text-stone-500">Complete your profile</p>
+                    <p className="text-xs text-stone-400">Fill in your farm details and upload an ID to get started.</p>
                   </div>
                 )}
               </div>
