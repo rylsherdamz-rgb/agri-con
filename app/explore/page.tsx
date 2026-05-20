@@ -1,4 +1,5 @@
 import ParcelVerificationWorkspace from "@/components/ParcelVerificationWorkspace";
+import NavigationBar from "@/components/NavigationBar";
 
 const verificationWindow = {
   start: "2026-04-19T00:00:00Z",
@@ -8,6 +9,7 @@ const verificationWindow = {
 export default function ParcelPage() {
   return (
     <div className="w-full h-full"    >
+        <NavigationBar />
         <ParcelVerificationWorkspace
           nftId={1}
           title="Central Valley Parcel A"

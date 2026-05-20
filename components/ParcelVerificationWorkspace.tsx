@@ -1,118 +1,183 @@
 "use client";
 
-import { useMemo, useState } from "react";
-
+import { useState } from "react";
 import ParcelMap from "@/components/ParcelMap";
 import SatelliteVerificationPanel from "@/components/SatelliteVerificationPanel";
 
-type Props = {
-  nftId: number;
+type LandParcel = {
+  id: number;
   title: string;
-  initialCenter: { lat: number; lng: number };
+  lat: number;
+  lng: number;
   temporalExtent: { start: string; end: string };
+};
+
+type Props = {
+  parcels: LandParcel[]; // Array of farm markers passed from your data layer
 };
 
 function round(value: number) {
   return Number(value.toFixed(6));
 }
 
-function buildBbox(center: { lat: number; lng: number }, span: number) {
-  return {
-    west: round(center.lng - span),
-    south: round(center.lat - span),
-    east: round(center.lng + span),
-    north: round(center.lat + span),
-  };
-}
+export default function ParcelVerificationWorkspace({ parcels }: Props) {
+  const [selectedParcel, setSelectedParcel] = useState<LandParcel | null>(null);
+  const [aiQuery, setAiQuery] = useState("");
 
-export default function ParcelVerificationWorkspace({
-  nftId,
-  title,
-  initialCenter,
-  temporalExtent,
-}: Props) {
-  const [selectedCenter, setSelectedCenter] = useState(initialCenter);
-  const [span, setSpan] = useState(0.08);
-  const bbox = useMemo(() => buildBbox(selectedCenter, span), [selectedCenter, span]);
-  const approxKm = (span * 111).toFixed(1);
+  // Track bbox dimensions locally when the farmer drags the handles on screen
+  const [bbox, setBbox] = useState({ west: 0, south: 0, east: 0, north: 0 });
+
+  const approxKmWidth = selectedParcel ? ((bbox.east - bbox.west) * 111).toFixed(1) : "0.0";
+  const approxKmHeight = selectedParcel ? ((bbox.north - bbox.south) * 111).toFixed(1) : "0.0";
+  const estimatedAcres = selectedParcel
+    ? Math.round(Math.abs(bbox.east - bbox.west) * 111 * Math.abs(bbox.north - bbox.south) * 111 * 247.105)
+    : 0;
+
+  const handleMarkerSelect = (parcelId: number) => {
+    const match = parcels.find((p) => p.id === parcelId);
+    if (!match) return;
+
+    setSelectedParcel(match);
+    // Initialize default bounding box around chosen parcel (~10km grid default)
+    setBbox({
+      west: round(match.lng - 0.05),
+      south: round(match.lat - 0.05),
+      east: round(match.lng + 0.05),
+      north: round(match.lat + 0.05),
+    });
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
   return (
-    <section className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
-      <article className="overflow-hidden  border border-stone-200 bg-white">
-        <div className="border-b border-stone-200 px-4 py-4 sm:px-6">
-          <h2 className="mt-1 text-lg font-semibold text-stone-900">{title}</h2>
-        </div>
+    <section className="relative border h-[calc(100vh-4rem)] w-full overflow-hidden bg-stone-100 rounded-2xl border border-stone-200 shadow-sm flex">
+      {/* 1. Full-Space Central Map Workspace */}
+      <div className="flex-1 h-full w-full relative">
         <ParcelMap
-          lat={initialCenter.lat}
-          lng={initialCenter.lng}
-          title={title}
-          selectedCenter={selectedCenter}
-          selectionSpan={span}
-          onPick={setSelectedCenter}
+          markers={parcels}
+          activeMarkerId={selectedParcel?.id}
+          onSelectMarker={handleMarkerSelect}
+          onBoundsChange={(bounds) => setBbox({
+            west: round(bounds.west),
+            south: round(bounds.south),
+            east: round(bounds.east),
+            north: round(bounds.north),
+          })}
         />
-      </article>
 
-      <article className="rounded-[30px] bg-gradient-to-b from-emerald-950 to-emerald-900 p-6 text-emerald-50">
-        <p className="text-xs uppercase tracking-[0.16em] text-emerald-200">Parcel Profile</p>
-        <h1 className="mt-2 text-2xl font-semibold">{title}</h1>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl border border-emerald-100/20 bg-emerald-900/40 p-3">
-            <p className="text-xs text-emerald-200">Analysis Radius</p>
-            <p className="mt-1 text-lg font-semibold">{approxKm} km</p>
-          </div>
-          <div className="rounded-xl border border-emerald-100/20 bg-emerald-900/40 p-3">
-            <p className="text-xs text-emerald-200">Center</p>
-            <p className="mt-1 text-sm font-semibold">
-              {selectedCenter.lat.toFixed(4)}, {selectedCenter.lng.toFixed(4)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-emerald-100/20 bg-emerald-900/40 p-3">
-            <p className="text-xs text-emerald-200">Window</p>
-            <p className="mt-1 text-sm font-semibold">
-              {temporalExtent.start.slice(0, 10)} to {temporalExtent.end.slice(0, 10)}
-            </p>
-          </div>
-          <div className="rounded-xl border border-emerald-100/20 bg-emerald-900/40 p-3">
-            <p className="text-xs text-emerald-200">Mode</p>
-            <p className="mt-1 text-sm font-semibold">Oracle-signed attestation</p>
-          </div>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-emerald-100/20 bg-emerald-900/35 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-emerald-50">Analysis window</p>
-            <span className="text-xs text-emerald-200">Half-span {span.toFixed(3)}°</span>
-          </div>
-          <input
-            type="range"
-            min="0.01"
-            max="0.2"
-            step="0.01"
-            value={span}
-            onChange={(event) => setSpan(Number(event.target.value))}
-            className="mt-3 h-2 w-full accent-lime-300"
-          />
-          <div className="mt-3 grid gap-2 text-xs text-emerald-100 sm:grid-cols-2">
-            <div className="rounded-xl border border-emerald-100/15 bg-emerald-950/40 p-3">
-              West / East: {bbox.west}, {bbox.east}
+        {/* Dynamic Float Banner overlay showing active scanning size status */}
+        {selectedParcel && (
+          <div className="absolute top-4 left-4 z-10 flex gap-4 text-sm bg-white/95 backdrop-blur border border-stone-200 rounded-xl p-3 shadow-md">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Scanner Size</span>
+              <span className="font-bold text-stone-800">{approxKmWidth} x {approxKmHeight} km</span>
             </div>
-            <div className="rounded-xl border border-emerald-100/15 bg-emerald-950/40 p-3">
-              South / North: {bbox.south}, {bbox.north}
+            <div className="border-l border-stone-200 pl-4">
+              <span className="text-[10px] uppercase font-bold text-stone-400 block tracking-wider">Calculated Area</span>
+              <span className="font-bold text-emerald-600">{estimatedAcres.toLocaleString()} Acres</span>
             </div>
           </div>
-        </div>
+        )}
+      </div>
 
-        <div className="mt-5">
-          <SatelliteVerificationPanel
-            nftId={nftId}
-            bbox={bbox}
-            minNdviBps={3500}
-            temporalExtent={temporalExtent}
-            sampleGridSize={20}
-          />
-        </div>
-      </article>
+      {/* 2. Slide-out Control Drawer Sidebar */}
+      <div
+        className={`absolute lg:relative top-0 right-0 h-full w-full max-w-sm sm:max-w-md bg-stone-900 border-l border-stone-800 shadow-2xl p-6 text-stone-100 flex flex-col justify-between transition-transform duration-300 ease-in-out z-20 ${
+          selectedParcel ? "translate-x-0" : "translate-x-full lg:hidden"
+        }`}
+      >
+        {selectedParcel ? (
+          <div className="flex flex-col h-full justify-between">
+            <div className="space-y-6 overflow-y-auto pr-1">
+              {/* Drawer Dismiss Control Header */}
+              <div className="flex items-start justify-between border-b border-stone-800 pb-4">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Selected Farmstead</span>
+                  <h1 className="text-xl font-bold text-white mt-0.5 tracking-tight">{selectedParcel.title}</h1>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedParcel(null)}
+                  className="rounded-lg bg-stone-800 p-2 text-stone-400 hover:text-white transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Assessment Context Card */}
+              <div className="bg-stone-950/50 rounded-xl p-4 border border-stone-800/80 space-y-2.5">
+                <div className="flex justify-between text-xs sm:text-sm">
+                  <span className="text-stone-400">Time-window:</span>
+                  <span className="font-medium text-stone-200">
+                    {formatDate(selectedParcel.temporalExtent.start)} – {formatDate(selectedParcel.temporalExtent.end)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs sm:text-sm items-center">
+                  <span className="text-stone-400">System Mode:</span>
+                  <span className="text-[10px] font-bold uppercase bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-800/50">
+                    Satellite Oracle
+                  </span>
+                </div>
+              </div>
+
+              {/* Farmer Friendly Instructions Indicator */}
+              <div className="rounded-xl bg-emerald-950/30 border border-emerald-800/20 p-4">
+                <div className="flex gap-2.5 items-center">
+                  <span className="text-emerald-400 text-lg">💡</span>
+                  <p className="text-xs text-emerald-100 font-medium leading-relaxed">
+                    <strong>Canva Sizing Mode Active:</strong> Use the dot handles on the green map rectangle to stretch or shrink the verification grid directly over your land bounds.
+                  </p>
+                </div>
+              </div>
+
+              {/* Context-aware Farm AI Box */}
+              <div className="rounded-xl border border-stone-800 bg-stone-950 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">✨</span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-stone-200">Ask Farm AI</h3>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Ask about this parcel's index..."
+                    value={aiQuery}
+                    onChange={(e) => setAiQuery(e.target.value)}
+                    className="flex-1 rounded-lg bg-stone-900 border border-stone-800 p-2 text-xs text-stone-200 placeholder-stone-500 focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 transition-colors"
+                    onClick={() => alert(`AI Analysis requested for: "${aiQuery}"`)}
+                  >
+                    Query
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Satellite Attestation Execution Point */}
+            <div className="mt-6 pt-4 border-t border-stone-800">
+              <SatelliteVerificationPanel
+                nftId={selectedParcel.id}
+                bbox={bbox}
+                minNdviBps={3500}
+                temporalExtent={selectedParcel.temporalExtent}
+                sampleGridSize={20}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center text-center text-stone-500 text-sm">
+            Select a point marker on the field workspace map to execute land parameter verification.
+          </div>
+        )}
+      </div>
     </section>
   );
 }
