@@ -184,4 +184,5 @@ app.post("/farmer-id/upload-url", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`Agri-Block backend running on port ${PORT}`));
+const HOST = "0.0.0.0";
+app.listen(PORT, HOST, () => console.log(`Agri-Block backend running on ${HOST}:${PORT}`));

@@ -3,29 +3,38 @@ services:
     name: agri-con-frontend
     runtime: node
     plan: free
+    region: singapore
     buildCommand: npm ci && npm run build
     startCommand: npm start
+    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
       - key: BACKEND_URL
-        value: "https://agri-con-backend.onrender.com"
+        fromService:
+          name: agri-con-backend
+          type: web
+          property: host
       - key: NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE
-        sync: false
+        value: "Test SDF Network ; September 2015"
+      - key: NEXT_PUBLIC_STELLAR_RPC_URL
+        value: "https://soroban-testnet.stellar.org"
+      - key: NEXT_PUBLIC_STELLAR_HORIZON_URL
+        value: "https://horizon-testnet.stellar.org"
       - key: NEXT_PUBLIC_CROP_NFT_CONTRACT_ID
-        sync: false
+        value: "CCA2E4OOZOR2NLAL2XEWE3KDHTTPDEBWOUX3BMR5QLOITWHOKWKULULR"
       - key: NEXT_PUBLIC_ESCROW_CONTRACT_ID
-        sync: false
+        value: "CDMKYC3VBHZJZMTEN6FQPFKG6LRYXIYOIP5KHEOPGSWCCYRSYXJSZFOQ"
       - key: NEXT_PUBLIC_VERIFICATION_CONTRACT_ID
-        sync: false
+        value: "CA3NIAKLHQN3SKNBUGSWLOZRWY4BNNSKWCPI2BJIHZGYZM4J3QLW4GSA"
       - key: NEXT_PUBLIC_USDC_TOKEN_CONTRACT_ID
-        sync: false
+        value: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
       - key: NEXT_PUBLIC_TREASURY_ADDRESS
-        sync: false
+        value: "GAJPZCOVW34KTYF764X74ZRYOJIF3H2XKCRWH4CARVRZD5M4WJ2XVWLW"
       - key: NEXT_PUBLIC_ORACLE_ADDRESS
-        sync: false
-      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-        sync: false
+        value: "GAQTXZLBZ2MTU2GWFEDHXBMJ7BMUZFXTW37ZNZF2IQYWQFPWPHTJWNA3"
+      - key: ORACLE_ADDRESS
+        value: "GAQTXZLBZ2MTU2GWFEDHXBMJ7BMUZFXTW37ZNZF2IQYWQFPWPHTJWNA3"
       - key: NEXT_PUBLIC_ACTIVE_NFT_IDS
         value: "1"
       - key: ACTIVE_NFT_IDS
@@ -36,27 +45,61 @@ services:
         value: "https://soroban-testnet.stellar.org"
       - key: STELLAR_HORIZON_URL
         value: "https://horizon-testnet.stellar.org"
+      - key: STELLAR_NETWORK_PASSPHRASE
+        value: "Test SDF Network ; September 2015"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENEO_BASE_URL
+        value: "https://openeo.dataspace.copernicus.eu"
+      - key: OPENEO_SH_BASE_URL
+        value: "https://openeosh.dataspace.copernicus.eu"
+      - key: OPENEO_CLIENT_ID
+        sync: false
+      - key: OPENEO_CLIENT_SECRET
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: GCP_FARMER_ID_BUCKET
+        sync: false
+      - key: GCP_SERVICE_ACCOUNT_JSON
+        sync: false
 
   - type: web
     name: agri-con-backend
     runtime: node
     plan: free
-    buildCommand: cd backend && npm ci
-    startCommand: cd backend && npm start
+    region: singapore
+    rootDir: backend
+    buildCommand: npm ci && npx prisma generate && npx prisma migrate deploy
+    startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: "8080"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: agri-con-db
+          property: connectionString
       - key: GEMINI_API_KEY
         sync: false
       - key: OPENEO_CLIENT_ID
         sync: false
       - key: OPENEO_CLIENT_SECRET
         sync: false
-      - key: GCP_FARMER_ID_BUCKET
-        sync: false
-      - key: GCP_SERVICE_ACCOUNT_JSON
-        sync: false
       - key: OPENEO_BASE_URL
         value: "https://openeo.dataspace.copernicus.eu"
       - key: OPENEO_SH_BASE_URL
         value: "https://openeosh.dataspace.copernicus.eu"
+      - key: GCP_FARMER_ID_BUCKET
+        sync: false
+      - key: GCP_SERVICE_ACCOUNT_JSON
+        sync: false
+
+databases:
+  - name: agri-con-db
+    databaseName: agri_con
+    plan: free
+    postgresMajorVersion: "16"
+    ipAllowList: []
