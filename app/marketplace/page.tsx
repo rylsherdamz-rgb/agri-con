@@ -13,6 +13,13 @@ export default async function MarketplacePage() {
 
         <div className="w-[90%] h-[90%] mx-[5%]">
             {/* this is where the listing will show with the filtering options and search options */}
+            {/* show the + button to add listing */}
+
+
+            <div>
+                {/* display all the list  */}
+
+            </div>
 
         </div>
 

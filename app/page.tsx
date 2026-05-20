@@ -7,7 +7,9 @@ export default function Home() {
     <div className="min-h-screen  bg-transparent text-stone-900">
       <NavigationBar />
       <main className="pb-12">
-                <HeroComponent />
+         {/* improve the design of this hero component */}
+            <HeroComponent />
+
       </main>
       <Footer />
     </div>

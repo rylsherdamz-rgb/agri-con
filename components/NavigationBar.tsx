@@ -4,7 +4,7 @@ import Link from "next/link";
 const links = [
   { label: "Marketplace", href: "/marketplace" },
   { label: "Order", href: "/order" }, // this will have the order and history
-  { label: "DashBoard", href: "/insights" },
+  { label: "DashBoard", href: "/dashboard" },
 ];
 
 export default function NavigationBar() {
