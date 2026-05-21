@@ -142,7 +142,7 @@ function hashFromXdr(xdrTx: string) {
 }
 
 export async function prepareMintCropNft(input: MintCropInput): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("cropNft");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.farmer,
     contractId,
@@ -166,7 +166,7 @@ export async function prepareMintCropNft(input: MintCropInput): Promise<Unsigned
 }
 
 export async function prepareBuyCropNft(input: BuyCropInput): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("escrow");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(input.buyer, contractId, "buy_crop_nft", [
     nativeToScVal(input.buyer, { type: "address" }),
     nativeToScVal(input.nftId, { type: "u64" }),
@@ -178,7 +178,7 @@ export async function prepareBuyCropNft(input: BuyCropInput): Promise<UnsignedTx
 export async function prepareUpsertFarmerProfile(
   input: UpsertFarmerProfileInput,
 ): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("cropNft");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.farmer,
     contractId,
@@ -199,7 +199,7 @@ export async function prepareUpsertFarmerProfile(
 export async function prepareSetFarmerProfileVerified(
   input: SetFarmerProfileVerifiedInput,
 ): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("cropNft");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.admin,
     contractId,
@@ -214,7 +214,7 @@ export async function prepareSetFarmerProfileVerified(
 }
 
 export async function prepareSubmitProof(input: ProofInput): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(input.farmer, contractId, "submit_proof", [
     nativeToScVal(input.farmer, { type: "address" }),
     nativeToScVal(input.nftId, { type: "u64" }),
@@ -225,7 +225,7 @@ export async function prepareSubmitProof(input: ProofInput): Promise<UnsignedTxP
 }
 
 export async function prepareVerifyDelivery(input: VerifyInput): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.validator,
     contractId,
@@ -246,7 +246,7 @@ export async function prepareVerifyDelivery(input: VerifyInput): Promise<Unsigne
 export async function prepareSetListingBuyable(
   input: SetListingBuyableInput,
 ): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.admin,
     contractId,
@@ -263,7 +263,7 @@ export async function prepareSetListingBuyable(
 export async function prepareRecordSatelliteAttestation(
   input: RecordSatelliteAttestationInput,
 ): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.admin,
     contractId,
@@ -286,7 +286,7 @@ export async function prepareRecordSatelliteAttestation(
 export async function prepareRecordSatelliteAttestationByOracle(
   input: RecordSatelliteAttestationByOracleInput,
 ): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.oracle,
     contractId,

@@ -8,9 +8,9 @@ export const runtime = "nodejs";
 export default async function MarketplacePage() {
   let listings: Awaited<ReturnType<typeof getLiveListings>> = [];
   try {
-    listings = await getLiveListings();
+    const all = await getLiveListings();
+    listings = all.filter((l) => l.cropType !== null && l.parcelName !== null);
   } catch {
-    // Render empty state if RPC unavailable
   }
 
   return (

@@ -102,7 +102,7 @@ export async function POST(request: Request) {
 
       case "get_treasury_pool": {
         try {
-          const raw = await readContractValue(CONTRACT_IDS.escrow!, "get_treasury_pool_balance", []);
+          const raw = await readContractValue(CONTRACT_IDS.agriCon!, "get_treasury_pool_balance", []);
           const balance = typeof raw === "bigint" ? Number(raw) : (typeof raw === "number" ? raw : 0);
           return Response.json({ ok: true, balance, totalDistributed: 0, aidedCount: 0 });
         } catch {

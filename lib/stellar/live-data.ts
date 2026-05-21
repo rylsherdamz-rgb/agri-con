@@ -43,6 +43,8 @@ export type LiveFarmerProfile = {
   updatedAt: number;
 };
 
+const CONTRACT_ID = CONTRACT_IDS.agriCon;
+
 function makeRpcServer() {
   return new rpc.Server(STELLAR_RPC_URL, { allowHttp: STELLAR_RPC_URL.startsWith("http://") });
 }
@@ -102,9 +104,8 @@ function formatUsdcFromStroops(value: unknown): string | null {
 }
 
 async function readContract(method: string, args: xdr.ScVal[]) {
-  const contractId = CONTRACT_IDS.verification;
-  if (!contractId) {
-    throw new Error("Missing verification contract id");
+  if (!CONTRACT_ID) {
+    throw new Error("Missing contract id");
   }
 
   const probe = getProbeAddress();
@@ -114,7 +115,7 @@ async function readContract(method: string, args: xdr.ScVal[]) {
 
   const server = makeRpcServer();
   const account = await server.getAccount(probe);
-  const contract = new Contract(contractId);
+  const contract = new Contract(CONTRACT_ID);
 
   const tx = new TransactionBuilder(account, {
     fee: BASE_FEE,
@@ -169,7 +170,7 @@ export async function getLiveListings(): Promise<LiveListing[]> {
 
       try {
         const crop = (await withTimeout(
-          readContractFor(CONTRACT_IDS.cropNft, "get_crop", [nativeToScVal(nftId, { type: "u64" })]),
+          readContract("get_crop", [nativeToScVal(nftId, { type: "u64" })]),
           `read crop metadata for nft ${nftId}`,
         )) as Record<string, unknown>;
         cropType = typeof crop.crop_type === "string" ? crop.crop_type : null;
@@ -179,7 +180,6 @@ export async function getLiveListings(): Promise<LiveListing[]> {
         harvestDate = scNumberToNumber(crop.harvest_date);
         cropStatus = typeof crop.status === "string" ? crop.status : null;
       } catch {
-        // Crop might not exist for configured id.
       }
 
       try {
@@ -193,16 +193,11 @@ export async function getLiveListings(): Promise<LiveListing[]> {
           typeof attestation.min_ndvi_bps === "number" ? attestation.min_ndvi_bps : null;
         source = typeof attestation.source === "string" ? attestation.source : null;
       } catch {
-        // No attestation yet for this nft id.
       }
 
       try {
         const listing = (await withTimeout(
-          readContractFor(
-            CONTRACT_IDS.cropNft,
-            "get_listing_metadata",
-            [nativeToScVal(nftId, { type: "u64" })],
-          ),
+          readContract("get_listing_metadata", [nativeToScVal(nftId, { type: "u64" })]),
           `read listing metadata for nft ${nftId}`,
         )) as Record<string, unknown>;
         parcelName = typeof listing.parcel_name === "string" ? listing.parcel_name : null;
@@ -216,7 +211,6 @@ export async function getLiveListings(): Promise<LiveListing[]> {
           minNdviBps = scNumberToNumber(listing.min_ndvi_bps);
         }
       } catch {
-        // Listing metadata may not yet exist for older mints.
       }
 
       return {
@@ -244,8 +238,7 @@ export async function getLiveListings(): Promise<LiveListing[]> {
 }
 
 export async function getLiveFarmerProfiles(): Promise<LiveFarmerProfile[]> {
-  const contractId = CONTRACT_IDS.cropNft;
-  if (!contractId) return [];
+  if (!CONTRACT_ID) return [];
   const farmers = parseFarmerAddresses();
   if (farmers.length === 0) return [];
 
@@ -253,7 +246,7 @@ export async function getLiveFarmerProfiles(): Promise<LiveFarmerProfile[]> {
     farmers.map(async (farmer) => {
       try {
         const result = (await withTimeout(
-          readContractFor(contractId, "get_farmer_profile", [
+          readContract("get_farmer_profile", [
             nativeToScVal(farmer, { type: "address" }),
           ]),
           `read farmer profile for ${farmer}`,
@@ -280,36 +273,4 @@ export async function getLiveFarmerProfiles(): Promise<LiveFarmerProfile[]> {
   );
 
   return profiles.filter((profile): profile is LiveFarmerProfile => profile !== null);
-}
-
-async function readContractFor(contractId: string, method: string, args: xdr.ScVal[]) {
-  if (!contractId) {
-    throw new Error("Missing contract id");
-  }
-  const probe = getProbeAddress();
-  if (!probe) {
-    throw new Error("Missing probe address (set ORACLE_ADDRESS or TREASURY_ADDRESS)");
-  }
-
-  const server = makeRpcServer();
-  const account = await server.getAccount(probe);
-  const contract = new Contract(contractId);
-
-  const tx = new TransactionBuilder(account, {
-    fee: BASE_FEE,
-    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
-  })
-    .addOperation(contract.call(method, ...args))
-    .setTimeout(TimeoutInfinite)
-    .build();
-
-  const sim = await server.simulateTransaction(tx);
-  if (rpc.Api.isSimulationError(sim)) {
-    throw new Error(sim.error);
-  }
-  if (!sim.result?.retval) {
-    throw new Error(`No return value for ${method}`);
-  }
-
-  return scValToNative(sim.result.retval);
 }

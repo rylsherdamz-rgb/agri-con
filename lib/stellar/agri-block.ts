@@ -193,7 +193,7 @@ export async function submitSignedXdr(signedXdr: string): Promise<SubmitSignedXd
 }
 
 export async function mintCropNft(input: MintCropInput): Promise<TransactionPreview> {
-  const contractId = getContractId("cropNft");
+  const contractId = getContractId("agriCon");
   const price = parseUsdcAmount(input.priceUsdc);
   const prepared = await buildPreparedContractTransaction(
     input.farmer,
@@ -227,7 +227,7 @@ export async function mintCropNft(input: MintCropInput): Promise<TransactionPrev
 }
 
 export async function buyCropNft(input: BuyCropInput): Promise<TransactionPreview> {
-  const contractId = getContractId("escrow");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.buyer,
     contractId,
@@ -251,7 +251,7 @@ export async function buyCropNft(input: BuyCropInput): Promise<TransactionPrevie
 }
 
 export async function submitProof(input: ProofInput): Promise<TransactionPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.farmer,
     contractId,
@@ -276,7 +276,7 @@ export async function submitProof(input: ProofInput): Promise<TransactionPreview
 }
 
 export async function verifyDelivery(input: VerifyInput): Promise<TransactionPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.validator,
     contractId,
@@ -308,7 +308,7 @@ export async function verifyDelivery(input: VerifyInput): Promise<TransactionPre
 export async function registerValidator(
   input: RegisterValidatorInput,
 ): Promise<TransactionPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.admin,
     contractId,
@@ -331,7 +331,7 @@ export async function registerValidator(
 export async function setListingBuyable(
   input: SetListingBuyableInput,
 ): Promise<TransactionPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.admin,
     contractId,
@@ -357,7 +357,7 @@ export async function setListingBuyable(
 export async function recordSatelliteAttestation(
   input: RecordSatelliteAttestationInput,
 ): Promise<TransactionPreview> {
-  const contractId = getContractId("verification");
+  const contractId = getContractId("agriCon");
   const prepared = await buildPreparedContractTransaction(
     input.admin,
     contractId,

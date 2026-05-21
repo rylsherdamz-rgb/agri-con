@@ -5,26 +5,26 @@ import ExploreWorkspace from "./ExploreWorkspace";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const VERIFICATION_WINDOW = {
-  start: "2026-04-19T00:00:00Z",
-  end: "2026-05-19T23:59:59Z",
-};
-
 export default async function ExplorePage() {
   let listings: Awaited<ReturnType<typeof getLiveListings>> = [];
   try {
-    listings = await getLiveListings();
+    const all = await getLiveListings();
+    listings = all.filter((l) => l.cropType !== null && l.parcelName !== null);
   } catch {}
 
   const parcels = listings.map((l) => ({
     id: l.nftId,
     title: l.parcelName ?? l.cropType ?? `Parcel #${l.nftId}`,
-    lat: 14.5995 + l.nftId * 0.003,
-    lng: 120.9842 + l.nftId * 0.002,
-    temporalExtent: VERIFICATION_WINDOW,
+    lat: 0,
+    lng: 0,
+    temporalExtent: {
+      start: "2026-04-19T00:00:00Z",
+      end: "2026-05-19T23:59:59Z",
+    },
     region: l.region,
     ndviBps: l.ndviBps,
     buyable: l.buyable,
+    noCoords: true,
   }));
 
   return (

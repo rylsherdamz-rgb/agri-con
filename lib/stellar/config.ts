@@ -11,7 +11,8 @@ export const STELLAR_HORIZON_URL =
   "https://horizon-testnet.stellar.org";
 
 export const CONTRACT_IDS = {
-  cropNft: process.env.NEXT_PUBLIC_CROP_NFT_CONTRACT_ID ?? "",
-  escrow: process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID ?? "",
-  verification: process.env.NEXT_PUBLIC_VERIFICATION_CONTRACT_ID ?? "",
+  agriCon: process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
+  cropNft: process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
+  escrow: process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
+  verification: process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
 } as const;

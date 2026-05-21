@@ -2,8 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import {
-  MapPin,
-  Crosshair,
+  MapPin, Crosshair,
   Leaf,
   Satellite,
   ChevronRight,
@@ -25,8 +24,7 @@ import {
   Hash,
 } from "lucide-react";
 import ParcelMap from "@/components/ParcelMap";
-import SatelliteVerificationPanel from "@/components/SatelliteVerificationPanel";
-import { useWallet } from "@/components/stellar/wallet-context";
+import SatelliteVerificationPanel from "@/components/SatelliteVerificationPanel"; import { useWallet } from "@/components/stellar/wallet-context";
 import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
@@ -42,6 +40,7 @@ type Parcel = {
   region?: string | null;
   ndviBps?: number | null;
   buyable?: boolean;
+  noCoords?: boolean;
 };
 
 function round(v: number) {
@@ -170,12 +169,16 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
     const match = parcels.find((p) => p.id === id);
     if (!match) return;
     setSelected(match);
-    setBbox({
-      west: round(match.lng - 0.05),
-      south: round(match.lat - 0.05),
-      east: round(match.lng + 0.05),
-      north: round(match.lat + 0.05),
-    });
+    if (match.noCoords) {
+      setBbox({ west: 0, south: 0, east: 0, north: 0 });
+    } else {
+      setBbox({
+        west: round(match.lng - 0.05),
+        south: round(match.lat - 0.05),
+        east: round(match.lng + 0.05),
+        north: round(match.lat + 0.05),
+      });
+    }
     setDrawMode("none");
     setPolygonCoords([]);
     setPolygonCenter(null);
@@ -377,7 +380,7 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
       {/* Left: Map + draw toggle */}
       <div className="relative overflow-hidden rounded-2xl border border-farm-200/60 bg-stone-100">
         <ParcelMap
-          markers={parcels}
+          markers={parcels.filter((p) => !p.noCoords)}
           activeMarkerId={selected?.id}
           onSelectMarker={handleSelect}
           onBoundsChange={(b) =>
