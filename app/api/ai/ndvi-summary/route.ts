@@ -1,3 +1,11 @@
+const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
+
+function getConfig() {
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) throw new Error("NVIDIA_API_KEY not configured");
+  return { apiKey, model: process.env.AI_MODEL ?? "meta/llama-3.3-70b-instruct" };
+}
+
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
@@ -24,57 +32,59 @@ export async function POST(request: Request) {
             ? "sparse vegetation"
             : "very little vegetation (possibly bare soil or water)";
 
-    const fallback = {
-      summary: `NDVI at ${ndviPercent} indicates ${vegHealth}. This suggests the parcel has visible photosynthetic activity consistent with ${cropType || "vegetation"} growth.`,
-      recommendation: ndviBps > 5000
-        ? "Good conditions — proceed with the forward contract."
-        : "Consider waiting for improved vegetation index before committing.",
-      healthLabel: ndviBps > 5000 ? "Healthy" : ndviBps > 3000 ? "Moderate" : "Needs Attention",
-    };
+    const { apiKey, model } = getConfig();
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return Response.json({ ok: true, ...fallback, ndviBps, ndviPercent, vegHealth, cropType, region });
-    }
-
-    try {
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-
-      const prompt = `You are an agricultural analyst. Given the following satellite NDVI data for a crop parcel, explain what it means in plain language (2-3 sentences max) and give a short harvest recommendation.
+    const prompt = `You are an agricultural analyst. Given the following satellite NDVI data for a crop parcel, explain what it means in plain language (2-3 sentences max) and give a short harvest recommendation.
 
 NDVI: ${ndviPercent} (${ndviBps} basis points)
 Vegetation health classification: ${vegHealth}
 ${cropType ? `Crop type: ${cropType}` : ""}
 ${region ? `Region: ${region}` : ""}
 
-Respond in JSON format:
-{
-  "summary": "plain language explanation of what this NDVI means",
-  "recommendation": "short actionable recommendation for buyer/farmer",
-  "healthLabel": "Healthy" | "Moderate" | "Needs Attention"
-}`;
+Respond ONLY with valid JSON — no markdown, no code fences, no extra text:
+{"summary":"plain language explanation","recommendation":"actionable recommendation","healthLabel":"Healthy"}`;
 
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
+    const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You return ONLY valid JSON. No markdown, no backticks, no explanations outside the JSON object." },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 300,
+        temperature: 0.3,
+      }),
+    });
 
-      let parsed: { summary: string; recommendation: string; healthLabel: string };
-      try {
-        const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-        parsed = JSON.parse(cleaned);
-      } catch {
-        parsed = fallback;
-      }
+    const json = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      error?: { message: string };
+    };
 
-      return Response.json({ ok: true, ...parsed, ndviBps, ndviPercent, vegHealth, cropType, region });
-    } catch (geminiErr) {
-      const msg = geminiErr instanceof Error ? geminiErr.message : String(geminiErr);
-      if (msg.includes("429") || msg.includes("quota") || msg.includes("Quota")) {
-        return Response.json({ ok: true, ...fallback, ndviBps, ndviPercent, vegHealth, cropType, region });
-      }
-      throw geminiErr;
+    if (!res.ok || json.error) {
+      const msg = json.error?.message ?? `NVIDIA API returned ${res.status}`;
+      return Response.json({ error: msg }, { status: 502 });
     }
+
+    const raw = (json.choices?.[0]?.message?.content ?? "").trim();
+    let parsed: { summary: string; recommendation: string; healthLabel: string };
+    try {
+      const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      parsed = {
+        summary: raw.slice(0, 300) || `NDVI at ${ndviPercent} indicates ${vegHealth}.`,
+        recommendation: ndviBps > 5000 ? "Good conditions — proceed with the forward contract." : "Consider waiting for improved vegetation index before committing.",
+        healthLabel: ndviBps > 5000 ? "Healthy" : ndviBps > 3000 ? "Moderate" : "Needs Attention",
+      };
+    }
+
+    return Response.json({ ok: true, ...parsed, ndviBps, ndviPercent, vegHealth, cropType, region });
   } catch (err) {
     console.error("NDVI summary error:", err);
     return Response.json(

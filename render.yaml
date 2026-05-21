@@ -17,7 +17,7 @@ services:
         fromDatabase:
           name: agri-con-db
           property: connectionString
-      - key: GEMINI_API_KEY
+      - key: NVIDIA_API_KEY
         sync: false
       - key: OPENEO_CLIENT_ID
         sync: false

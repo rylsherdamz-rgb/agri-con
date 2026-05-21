@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type MapMarkerData = {
   id: number;
@@ -14,69 +14,81 @@ type Props = {
   activeMarkerId?: number;
   onSelectMarker: (id: number) => void;
   onBoundsChange: (bounds: { north: number; south: number; east: number; west: number }) => void;
-};
-
-type GoogleMapsApi = {
-  Map: new (el: HTMLElement, cfg: Record<string, unknown>) => {
-    panTo: (coords: { lat: number; lng: number }) => void;
-    setZoom: (lvl: number) => void;
-  };
-  marker?: {
-    AdvancedMarkerElement: new (cfg: {
-      map: unknown;
-      position: { lat: number; lng: number };
-      title?: string;
-      gmpClickable?: boolean;
-    }) => {
-      addListener: (event: string, handler: () => void) => void;
-    };
-  };
-  Rectangle: new (cfg: {
-    map: unknown;
-    bounds: { north: number; south: number; east: number; west: number };
-    editable?: boolean;
-    draggable?: boolean;
-    strokeColor?: string;
-    strokeOpacity?: number;
-    strokeWeight?: number;
-    fillColor?: string;
-    fillOpacity?: number;
-  }) => {
-    setBounds?: (bounds: { north: number; south: number; east: number; west: number }) => void;
-    setMap?: (map: unknown) => void;
-    getBounds?: () => {
-      getNorthEast: () => { lat: () => number; lng: () => number };
-      getSouthWest: () => { lat: () => number; lng: () => number };
-    };
-    addListener: (event: string, handler: () => void) => void;
-  };
+  drawMode?: "rect" | "polygon" | "none";
+  onPolygonComplete?: (coords: { lat: number; lng: number }[]) => void;
 };
 
 type GoogleWindow = Window & {
-  google?: { maps: GoogleMapsApi };
+  google?: {
+    maps: {
+      Map: new (el: HTMLElement, cfg: Record<string, unknown>) => Record<string, unknown>;
+      drawing: {
+        DrawingManager: new (cfg: {
+          map: unknown;
+          drawingMode?: unknown;
+          drawingControl?: boolean;
+          drawingControlOptions?: Record<string, unknown>;
+          polygonOptions?: Record<string, unknown>;
+        }) => {
+          setMap: (map: unknown) => void;
+          setDrawingMode: (mode: unknown) => void;
+          setOptions: (opts: Record<string, unknown>) => void;
+          addListener: (event: string, cb: () => void) => void;
+        };
+      };
+      OverlayType: { POLYGON: unknown };
+      marker?: {
+        AdvancedMarkerElement: new (cfg: {
+          map: unknown;
+          position: { lat: number; lng: number };
+          title?: string;
+          gmpClickable?: boolean;
+        }) => { addListener: (e: string, h: () => void) => void };
+      };
+      Rectangle: new (cfg: {
+        map: unknown;
+        bounds: { north: number; south: number; east: number; west: number };
+        editable?: boolean;
+        draggable?: boolean;
+        strokeColor?: string;
+        strokeOpacity?: number;
+        strokeWeight?: number;
+        fillColor?: string;
+        fillOpacity?: number;
+      }) => {
+        setBounds?: (b: { north: number; south: number; east: number; west: number }) => void;
+        setMap?: (m: unknown) => void;
+        getBounds?: () => {
+          getNorthEast: () => { lat: () => number; lng: () => number };
+          getSouthWest: () => { lat: () => number; lng: () => number };
+        };
+        addListener: (e: string, h: () => void) => void;
+      };
+    };
+  };
   [key: string]: (() => void) | unknown;
 };
 
-const GOOGLE_MAPS_SCRIPT_ID = "agri-con-google-maps";
-let googleMapsLoader: Promise<void> | null = null;
+const SCRIPT_ID = "agri-con-google-maps";
+let loader: Promise<void> | null = null;
 
-function loadGoogleMapsApi(key: string) {
+function loadApi(key: string) {
   if (typeof window === "undefined") return Promise.reject();
   const w = window as unknown as GoogleWindow;
-  if (w.google?.maps) return Promise.resolve();
-  if (googleMapsLoader) return googleMapsLoader;
+  if (w.google?.maps?.drawing) return Promise.resolve();
+  if (loader) return loader;
 
-  googleMapsLoader = new Promise<void>((resolve, reject) => {
-    const callback = "agriConGoogleMapsReady";
-    w[callback] = () => { resolve(); delete w[callback]; };
-    const script = document.createElement("script");
-    script.id = GOOGLE_MAPS_SCRIPT_ID;
-    script.async = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&libraries=marker&v=weekly&callback=${callback}`;
-    script.onerror = () => { googleMapsLoader = null; reject(); };
-    document.head.appendChild(script);
+  loader = new Promise<void>((resolve, reject) => {
+    const cb = "agriConMapsReady";
+    w[cb] = () => { resolve(); delete w[cb]; };
+    const s = document.createElement("script");
+    s.id = SCRIPT_ID;
+    s.async = true;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&libraries=marker,drawing&v=weekly&callback=${cb}`;
+    s.onerror = () => { loader = null; reject(); };
+    document.head.appendChild(s);
   });
-  return googleMapsLoader;
+  return loader;
 }
 
 export default function ParcelMap({
@@ -84,93 +96,68 @@ export default function ParcelMap({
   activeMarkerId,
   onSelectMarker,
   onBoundsChange,
+  drawMode = "rect",
+  onPolygonComplete,
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<any>(null);
-  const rectangleRef = useRef<any>(null);
+  const mapRef = useRef<unknown>(null);
+  const rectRef = useRef<unknown>(null);
+  const drawingRef = useRef<unknown>(null);
+  const [drawing, setDrawing] = useState(false);
 
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-  // Fall back to DEMO_MAP_ID to allow Advanced Markers to render if env is missing
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
 
-  // Initialize the Base Map Canvas Instance
+  // Init map
   useEffect(() => {
     if (!ref.current || !key || mapRef.current) return;
-
-    loadGoogleMapsApi(key).then(() => {
+    loadApi(key).then(() => {
       const w = window as unknown as GoogleWindow;
-      if (!w.google?.maps || !ref.current) return;
+      const gmap = w.google?.maps;
+      if (!gmap || !ref.current) return;
 
-      const initialCenter = markers.length > 0
+      const center = markers.length > 0
         ? { lat: markers[0].lat, lng: markers[0].lng }
         : { lat: 14.5995, lng: 120.9842 };
 
-      const instance = new w.google.maps.Map(ref.current, {
-        center: initialCenter,
+      const map = new gmap.Map(ref.current, {
+        center,
         zoom: 12,
-        mapId: mapId,
+        mapId,
         mapTypeControl: false,
         fullscreenControl: false,
         streetViewControl: false,
       });
+      mapRef.current = map;
 
-      mapRef.current = instance;
-
-      const AdvancedMarkerElement = w.google.maps.marker?.AdvancedMarkerElement;
-      if (AdvancedMarkerElement) {
+      const Adv = gmap.marker?.AdvancedMarkerElement;
+      if (Adv) {
         markers.forEach((m) => {
-          const advMarker = new AdvancedMarkerElement({
-            map: instance,
-            position: { lat: m.lat, lng: m.lng },
-            title: m.title,
-            gmpClickable: true,
-          });
-
-          // Fixed: Changed from 'click' to 'gmp-click' for modern advanced markers
-          advMarker.addListener("gmp-click", () => {
-            onSelectMarker(m.id);
-          });
+          const am = new Adv({ map, position: { lat: m.lat, lng: m.lng }, title: m.title, gmpClickable: true });
+          am.addListener("gmp-click", () => onSelectMarker(m.id));
         });
       }
     }).catch(() => {});
   }, [key, mapId, markers, onSelectMarker]);
 
-  // Handle Canvas Resizing Overlay & Center Pan Triggers when active parcel updates
+  // Handle active marker — show rectangle
   useEffect(() => {
-    const instance = mapRef.current;
-    if (!instance) return;
+    const gmap = (window as unknown as GoogleWindow).google?.maps;
+    const active = markers.find((m) => m.id === activeMarkerId);
+    if (!active || !mapRef.current || !gmap) return;
 
-    const w = window as unknown as GoogleWindow;
-    const activeTarget = markers.find((m) => m.id === activeMarkerId);
+    (mapRef.current as { panTo: unknown; setZoom: unknown }).panTo?.({ lat: active.lat, lng: active.lng });
+    (mapRef.current as { setZoom: unknown }).setZoom?.(13);
 
-    if (!activeTarget) {
-      if (rectangleRef.current) {
-        rectangleRef.current.setMap(null);
-        rectangleRef.current = null;
-      }
-      return;
-    }
-
-    const targetCoords = { lat: activeTarget.lat, lng: activeTarget.lng };
-    instance.panTo(targetCoords);
-    instance.setZoom(13);
-
-    if (rectangleRef.current) {
-      rectangleRef.current.setBounds({
-        north: targetCoords.lat + 0.05,
-        south: targetCoords.lat - 0.05,
-        east: targetCoords.lng + 0.05,
-        west: targetCoords.lng - 0.05,
+    if (rectRef.current) {
+      (rectRef.current as { setBounds?: (b: Record<string, number>) => void }).setBounds?.({
+        north: active.lat + 0.05, south: active.lat - 0.05,
+        east: active.lng + 0.05, west: active.lng - 0.05,
       });
-    } else if (w.google?.maps) {
-      const rectangle = new w.google.maps.Rectangle({
-        map: instance,
-        bounds: {
-          north: targetCoords.lat + 0.05,
-          south: targetCoords.lat - 0.05,
-          east: targetCoords.lng + 0.05,
-          west: targetCoords.lng - 0.05,
-        },
+    } else {
+      const rect = new gmap.Rectangle({
+        map: mapRef.current,
+        bounds: { north: active.lat + 0.05, south: active.lat - 0.05, east: active.lng + 0.05, west: active.lng - 0.05 },
         editable: true,
         draggable: true,
         strokeColor: "#10b981",
@@ -179,23 +166,69 @@ export default function ParcelMap({
         fillColor: "#10b981",
         fillOpacity: 0.1,
       });
-
-      const bubbleUpNewBounds = () => {
-        if (!rectangle.getBounds) return;
-        const b = rectangle.getBounds();
-        onBoundsChange({
+      rect.addListener("bounds_changed", () => {
+        const b = rect.getBounds?.();
+        if (b) onBoundsChange({
           north: b.getNorthEast().lat(),
           south: b.getSouthWest().lat(),
           east: b.getNorthEast().lng(),
           west: b.getSouthWest().lng(),
         });
-      };
-
-      rectangle.addListener("bounds_changed", bubbleUpNewBounds);
-      rectangleRef.current = rectangle;
+      });
+      rectRef.current = rect;
     }
   }, [activeMarkerId, markers, onBoundsChange]);
 
-  // Fixed: Removed absolute height pixel limits (min-h-[500px]) to respect parent canvas coordinates
-  return <div ref={ref} className="h-full w-full" />;
+  // Polygon drawing mode
+  useEffect(() => {
+    const w = window as unknown as GoogleWindow;
+    const gmap = w.google?.maps;
+    if (!gmap || !mapRef.current) return;
+
+    const dm = drawingRef.current as { setDrawingMode?: (m: unknown) => void; setMap?: (m: unknown) => void } | null;
+
+    if (drawMode === "polygon" && gmap.drawing) {
+      if (!dm) {
+        const mgr = new gmap.drawing.DrawingManager({
+          map: mapRef.current,
+          drawingMode: gmap.drawing.OverlayType.POLYGON,
+          drawingControl: false,
+          polygonOptions: {
+            strokeColor: "#10b981",
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: "#10b981",
+            fillOpacity: 0.15,
+            editable: true,
+            draggable: true,
+          },
+        });
+        mgr.addListener("polygoncomplete" as unknown as Parameters<typeof mgr.addListener>[0], () => {
+          // Don't auto-stop — let the user edit the polygon
+        });
+        drawingRef.current = mgr;
+        setDrawing(true);
+      }
+    } else {
+      if (dm) {
+        dm.setDrawingMode?.(null);
+        setDrawing(false);
+      }
+    }
+
+    return () => {
+      if (dm) dm.setDrawingMode?.(null);
+    };
+  }, [drawMode]);
+
+  return (
+    <div className="relative h-full w-full">
+      <div ref={ref} className="h-full w-full" />
+      {drawing && (
+        <div className="absolute bottom-3 left-3 rounded-lg bg-emerald-900/80 px-3 py-1.5 text-xs font-medium text-emerald-100">
+          Click points on the map to draw your parcel polygon. Double-click to finish.
+        </div>
+      )}
+    </div>
+  );
 }

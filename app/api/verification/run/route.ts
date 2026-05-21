@@ -257,7 +257,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const ndviBps = Math.round(ndviValue * 10000);
+    const rawNdviBps = Math.round(ndviValue * 10000);
+    const ndviBps = Math.max(0, rawNdviBps);
     const buyable = ndviBps >= minNdviBps;
     const observedAt = Math.floor(Date.now() / 1000);
     const source = "openEO-SentinelHub";
@@ -317,6 +318,7 @@ export async function POST(req: Request) {
       bbox: body.bbox,
       temporalExtent,
       ndviMean: ndviValue,
+      rawNdviBps,
       ndviBps,
       minNdviBps,
       buyable,

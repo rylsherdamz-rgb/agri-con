@@ -115,34 +115,56 @@ app.post("/api/attestations", async (req, res) => {
   }
 });
 
-// ====== GEMINI AI ======
+// ====== NVIDIA AI (NDVI Summary) ======
+const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
+
 app.post("/ai/ndvi-summary", async (req, res) => {
   try {
     const { ndviBps, cropType, region } = req.body;
     if (ndviBps === undefined) return res.status(400).json({ error: "ndviBps required" });
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
 
-    const { GoogleGenerativeAI } = require("@google/generative-ai");
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const apiKey = process.env.NVIDIA_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: "NVIDIA_API_KEY not configured" });
+    const model = process.env.AI_MODEL || "meta/llama-3.3-70b-instruct";
 
+    const ndviPercent = (ndviBps / 100).toFixed(2) + "%";
     const vegHealth = ndviBps > 6000 ? "dense" : ndviBps > 4000 ? "moderate" : "sparse";
-    const prompt = `You are an agricultural analyst. Given NDVI ${(ndviBps / 100).toFixed(2)}% for ${cropType || "crops"} in ${region || "a region"}, explain what this means in 2-3 sentences and give a harvest recommendation. Respond in JSON: {"summary":"...","recommendation":"...","healthLabel":"Healthy|Moderate|Needs Attention"}`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    try {
-      const cleaned = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      return res.json({ ok: true, ...JSON.parse(cleaned), ndviBps });
-    } catch {
+    const prompt = `You are an agricultural analyst. Given NDVI ${ndviPercent} for ${cropType || "crops"} in ${region || "a region"}, explain what this means in 2-3 sentences and give a harvest recommendation. Respond ONLY with valid JSON — no markdown, no code fences, no extra text: {"summary":"...","recommendation":"...","healthLabel":"Healthy|Moderate|Needs Attention"}`;
+
+    const nvRes = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: "You return ONLY valid JSON. No markdown, no backticks." },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 300,
+        temperature: 0.3,
+      }),
+    });
+
+    const json = await nvRes.json();
+    if (!nvRes.ok || json.error) {
+      const msg = json.error?.message || `NVIDIA API returned ${nvRes.status}`;
+      // Fallback to local computation
       return res.json({
         ok: true,
-        summary: `NDVI at ${(ndviBps / 100).toFixed(2)}% indicates ${vegHealth} vegetation.`,
+        summary: `NDVI at ${ndviPercent} indicates ${vegHealth} vegetation.`,
         recommendation: ndviBps > 5000 ? "Good conditions for harvest." : "Monitor conditions.",
         healthLabel: ndviBps > 5000 ? "Healthy" : "Needs Attention",
         ndviBps,
       });
+    }
+
+    const raw = (json.choices?.[0]?.message?.content || "").trim();
+    try {
+      const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+      return res.json({ ok: true, ...JSON.parse(cleaned), ndviBps });
+    } catch {
+      return res.json({ ok: true, summary: raw.slice(0, 300), recommendation: "Review the data.", healthLabel: "Moderate", ndviBps });
     }
   } catch (err) {
     console.error("NDVI AI error:", err);
