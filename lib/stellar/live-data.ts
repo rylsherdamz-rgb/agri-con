@@ -29,6 +29,7 @@ export type LiveListing = {
   parcelAreaHectares: number | null;
   region: string | null;
   observationWindowDays: number | null;
+  totalYieldKg: number | null;
 };
 
 export type LiveFarmerProfile = {
@@ -164,6 +165,7 @@ export async function getLiveListings(): Promise<LiveListing[]> {
       let parcelAreaHectares: number | null = null;
       let region: string | null = null;
       let observationWindowDays: number | null = null;
+      let totalYieldKg: number | null = null;
 
       try {
         const crop = (await withTimeout(
@@ -235,6 +237,7 @@ export async function getLiveListings(): Promise<LiveListing[]> {
         parcelAreaHectares,
         region,
         observationWindowDays,
+        totalYieldKg,
       };
     }),
   );

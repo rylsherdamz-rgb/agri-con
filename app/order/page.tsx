@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import NavigationBar from "@/components/NavigationBar";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
 import CheckOutComponent from "@/components/CheckOutComponent";
+import { useWallet } from "@/components/stellar/wallet-context";
+import { buyCropNft, submitSignedXdr } from "@/lib/stellar/agri-block";
 import { MapPin, Leaf, ChevronDown, ChevronUp, Sprout, ShoppingBag, Clock, Shield } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
 import type { LiveListing } from "@/lib/stellar/live-data";
@@ -15,11 +17,13 @@ const TABS = [
 ];
 
 export default function OrderPage() {
+  const { address } = useWallet();
   const [listings, setListings] = useState<LiveListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [checkoutListing, setCheckoutListing] = useState<LiveListing | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +69,23 @@ export default function OrderPage() {
     // Only try this once listings load
   }, [listings]);
 
+  async function handleConfirm() {
+    if (!address || !checkoutListing) return;
+    setConfirming(true);
+    try {
+      const { signedTxXdr } = await buyCropNft({
+        buyer: address,
+        nftId: checkoutListing.nftId,
+      });
+      await submitSignedXdr(signedTxXdr);
+      setCheckoutListing(null);
+    } catch (e) {
+      console.error("Checkout failed:", e);
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   const filtered = listings.filter((l) => {
     if (activeTab === "escrow") return !l.buyable;
     if (activeTab === "completed") return l.buyable;
@@ -95,6 +116,7 @@ export default function OrderPage() {
           <div className="mt-6 max-w-lg mx-auto">
             <CheckOutComponent
               listing={checkoutListing}
+              onConfirm={handleConfirm}
               onCancel={() => setCheckoutListing(null)}
             />
           </div>

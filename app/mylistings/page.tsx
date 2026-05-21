@@ -5,7 +5,7 @@ import { useWallet } from "@/components/stellar/wallet-context";
 import NavigationBar from "@/components/NavigationBar";
 import Link from "next/link";
 import {
-  MapPin, Plus, Leaf, DollarSign, Scale, CheckCircle, XCircle, ChevronRight, Sprout, List, Loader2,
+  MapPin, Plus, Leaf, DollarSign, Scale, CheckCircle, XCircle, ChevronRight, Sprout, List, Loader2, TrendingUp,
 } from "lucide-react";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
@@ -60,6 +60,12 @@ function ListingCard({ listing }: { listing: LiveListing }) {
             <span className="tabular-nums">{listing.quantityKg.toLocaleString()} kg</span>
           </div>
         )}
+        {listing.totalYieldKg !== null && listing.totalYieldKg > 0 && (
+          <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
+            <TrendingUp size={12} className="text-farm-600 shrink-0" />
+            <span className="tabular-nums">{listing.totalYieldKg.toLocaleString()} kg yield</span>
+          </div>
+        )}
       </div>
       <div className="mt-2 flex items-center justify-end text-[11px] font-medium text-farm-700 opacity-0 transition group-hover:opacity-100">
         View Details <ChevronRight size={12} className="ml-0.5" />
@@ -102,6 +108,7 @@ export default function MyListingsPage() {
             parcelAreaHectares: (l.areaHa ?? l.area_ha ?? null) as number | null,
             region: (l.region ?? null) as string | null,
             observationWindowDays: null,
+            totalYieldKg: (l.totalYieldKg ?? l.total_yield_kg ?? null) as number | null,
           }));
           setListings(mapped);
           return;

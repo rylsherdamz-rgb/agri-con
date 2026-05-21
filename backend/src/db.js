@@ -20,11 +20,11 @@ async function listFarmers() {
 }
 
 async function upsertListing(data) {
-  const { nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, status } = data;
+  const { nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status } = data;
   return prisma.listing.upsert({
     where: { nftId },
-    update: { cropType, quantityKg, priceUsdc, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, status },
-    create: { nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, status: status ?? "listed" },
+    update: { cropType, quantityKg, priceUsdc, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status },
+    create: { nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status: status ?? "listed" },
   });
 }
 

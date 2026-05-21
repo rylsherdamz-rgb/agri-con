@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   MapPin,
   Crosshair,
@@ -16,9 +16,22 @@ import {
   Loader2,
   CheckCircle,
   AlertTriangle,
+  MapPinned,
+  Rocket,
+  Sprout,
+  DollarSign,
+  Scale,
+  User,
+  Hash,
 } from "lucide-react";
 import ParcelMap from "@/components/ParcelMap";
 import SatelliteVerificationPanel from "@/components/SatelliteVerificationPanel";
+import { useWallet } from "@/components/stellar/wallet-context";
+import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
+
+const CROP_TYPES = ["rice", "corn", "wheat", "sugarcane", "soybean", "coconut", "banana", "coffee", "cacao", "mango"] as const;
 
 type Parcel = {
   id: number;
@@ -54,6 +67,30 @@ function bboxFromCoords(coords: { lat: number; lng: number }[]) {
   };
 }
 
+function simpleHash(str: string) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return "bbox-" + Math.abs(hash).toString(16).slice(0, 10);
+}
+
+function approximateHectares(coords: { lat: number; lng: number }[]) {
+  if (coords.length < 3) return 0;
+  const R = 6371 * 1000;
+  let area = 0;
+  for (let i = 0; i < coords.length; i++) {
+    const j = (i + 1) % coords.length;
+    const x1 = (coords[i].lng * Math.PI / 180) * R * Math.cos(coords[i].lat * Math.PI / 180);
+    const y1 = (coords[i].lat * Math.PI / 180) * R;
+    const x2 = (coords[j].lng * Math.PI / 180) * R * Math.cos(coords[j].lat * Math.PI / 180);
+    const y2 = (coords[j].lat * Math.PI / 180) * R;
+    area += x1 * y2 - x2 * y1;
+  }
+  return Math.round(Math.abs(area) / 2 / 10000 * 100) / 100;
+}
+
 type BookmarkEntry = {
   id: string;
   label: string;
@@ -63,7 +100,10 @@ type BookmarkEntry = {
   createdAt: number;
 };
 
+type MintStep = "draw" | "form" | "ndvi" | "minting" | "done";
+
 export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
+  const { address, connect } = useWallet();
   const [selected, setSelected] = useState<Parcel | null>(null);
   const [bbox, setBbox] = useState({ west: 0, south: 0, east: 0, north: 0 });
   const [drawMode, setDrawMode] = useState<"rect" | "polygon" | "none">("rect");
@@ -72,13 +112,59 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
   const [draftLabel, setDraftLabel] = useState("");
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
 
+  // Listing form state
+  const [mintStep, setMintStep] = useState<MintStep>("draw");
+  const [parcelName, setParcelName] = useState("");
+  const [cropType, setCropType] = useState("rice");
+  const [cropTypeCustom, setCropTypeCustom] = useState("");
+  const [quantityKg, setQuantityKg] = useState("");
+  const [priceUsdc, setPriceUsdc] = useState("");
+  const [totalYieldKg, setTotalYieldKg] = useState("");
+  const [region, setRegion] = useState("");
+  const [harvestDate, setHarvestDate] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    return d.toISOString().slice(0, 10);
+  });
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [mintTxHash, setMintTxHash] = useState<string | null>(null);
+  const [mintedNftId, setMintedNftId] = useState<number | null>(null);
+
+  // NDVI state
+  const [ndviRun, setNdviRun] = useState(false);
+  const [ndviBpsResult, setNdviBpsResult] = useState<number | null>(null);
+
+  const effectiveCropType = cropType === "other" ? cropTypeCustom : cropType;
+
   const clearPolygon = useCallback(() => {
     setPolygonCoords([]);
     setPolygonCenter(null);
     setBbox({ west: 0, south: 0, east: 0, north: 0 });
     setDrawMode("rect");
     setDraftLabel("");
+    setMintStep("draw");
+    resetListingForm();
   }, []);
+
+  const resetListingForm = () => {
+    setParcelName("");
+    setCropType("rice");
+    setCropTypeCustom("");
+    setQuantityKg("");
+    setPriceUsdc("");
+    setTotalYieldKg("");
+    setRegion("");
+    setHarvestDate(() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + 3);
+      return d.toISOString().slice(0, 10);
+    });
+    setMintError(null);
+    setMintTxHash(null);
+    setMintedNftId(null);
+    setNdviRun(false);
+    setNdviBpsResult(null);
+  };
 
   const handleSelect = (id: number) => {
     const match = parcels.find((p) => p.id === id);
@@ -94,6 +180,8 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
     setPolygonCoords([]);
     setPolygonCenter(null);
     setDraftLabel("");
+    setMintStep("draw");
+    resetListingForm();
   };
 
   const handleClearSelection = () => {
@@ -103,6 +191,8 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
     setPolygonCenter(null);
     setBbox({ west: 0, south: 0, east: 0, north: 0 });
     setDraftLabel("");
+    setMintStep("draw");
+    resetListingForm();
   };
 
   const handleToggleDraw = () => {
@@ -114,6 +204,8 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
     setPolygonCoords([]);
     setPolygonCenter(null);
     setSelected(null);
+    setMintStep("draw");
+    resetListingForm();
   };
 
   const handlePolygonComplete = (coords: { lat: number; lng: number }[]) => {
@@ -123,6 +215,9 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
     const center = centerOf(coords);
     setPolygonCenter(center);
     setBbox(bboxFromCoords(coords));
+    if (coords.length >= 3) {
+      setMintStep("form");
+    }
   };
 
   const handleBookmark = () => {
@@ -153,6 +248,106 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
     setPolygonCenter(entry.center);
     setBbox(entry.bbox);
     setDrawMode("none");
+    setMintStep("form");
+    resetListingForm();
+  };
+
+  const handleStartListing = () => {
+    resetListingForm();
+    setMintStep("form");
+  };
+
+  const handleMintSubmit = async () => {
+    setMintError(null);
+    setMintStep("minting");
+
+    try {
+      const farmer = address ?? (await connect());
+      if (!farmer) throw new Error("Connect your wallet to list a crop.");
+
+      const qty = parseInt(quantityKg, 10);
+      if (!qty || qty <= 0) throw new Error("Enter a valid quantity.");
+
+      const yieldKg = parseInt(totalYieldKg, 10);
+      if (!yieldKg || yieldKg <= 0) throw new Error("Enter a valid total yield.");
+
+      const price = parseFloat(priceUsdc);
+      if (!price || price <= 0) throw new Error("Enter a valid price.");
+
+      const name = parcelName.trim() || draftLabel.trim() || `Parcel at ${polygonCenter?.lat.toFixed(4)}N`;
+      const reg = region.trim() || "Unknown";
+      const hectares = approximateHectares(polygonCoords);
+      const bboxHash = simpleHash(`${bbox.west}${bbox.south}${bbox.east}${bbox.north}`);
+      const minNdvi = 3500;
+
+      const prepareRes = await fetch("/api/stellar", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          action: "prepare_mint_crop_nft",
+          farmer,
+          cropType: effectiveCropType,
+          quantityKg: qty,
+          priceUsdc: price.toFixed(2),
+          harvestDate,
+          parcelName: name,
+          parcelBboxHash: bboxHash,
+          parcelAreaHectares: hectares,
+          region: reg,
+          minNdviBps: minNdvi,
+          observationWindowDays: 30,
+        }),
+      });
+
+      if (!prepareRes.ok) {
+        const err = await prepareRes.json().catch(() => ({}));
+        throw new Error((err as Record<string, unknown>).error as string || "Failed to prepare mint transaction");
+      }
+
+      const prepared = await prepareRes.json() as { xdr: string; hash: string; contractId: string };
+      const { signedTxXdr, hash } = await signPreparedXdr(farmer, prepared.xdr);
+      const submission = await submitSignedXdr(signedTxXdr);
+      const txHash = submission.hash ?? hash;
+
+      setMintTxHash(txHash);
+
+      try {
+        const { getLiveListings } = await import("@/lib/stellar/live-data");
+        const all = await getLiveListings();
+        const mine = all.filter((l) => l.farmer === farmer);
+        const maxId = mine.length > 0 ? Math.max(...mine.map((l) => l.nftId)) : 0;
+        const newNftId = maxId + 1;
+        setMintedNftId(newNftId);
+
+        await fetch(`${BACKEND_URL}/api/listings`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            nftId: newNftId,
+            cropType: effectiveCropType,
+            quantityKg: qty,
+            priceUsdc: parseFloat(priceUsdc),
+            farmerId: farmer,
+            parcelName: name,
+            region: reg,
+            buyable: false,
+            ndviBps: ndviBpsResult ?? null,
+            minNdviBps: minNdvi,
+            areaHa: hectares,
+            totalYieldKg: yieldKg,
+            status: "listed",
+          }),
+        });
+      } catch (dbErr) {
+        console.warn("Failed to save listing to backend:", dbErr);
+      }
+
+      clearPolygon();
+      setMintStep("done");
+    } catch (e) {
+      setMintError(e instanceof Error ? e.message : "Listing failed");
+      setMintStep("form");
+    }
   };
 
   const hasPolygon = polygonCoords.length >= 3;
@@ -164,6 +359,18 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
       : { west: 0, south: 0, east: 0, north: 0 };
 
   const activeNftId = selected?.id ?? (hasPolygon ? 0 : null);
+
+  const formValid = parcelName.trim().length > 0
+    && quantityKg.trim().length > 0
+    && parseInt(quantityKg, 10) > 0
+    && priceUsdc.trim().length > 0
+    && parseFloat(priceUsdc) > 0
+    && totalYieldKg.trim().length > 0
+    && parseInt(totalYieldKg, 10) > 0;
+
+  const selectedRegion = selected?.region ?? polygonCenter
+    ? "Drawn Area"
+    : null;
 
   return (
     <div className="grid h-[calc(100vh-8rem)] gap-4 lg:grid-cols-[1fr_380px]">
@@ -204,7 +411,7 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
               onClick={clearPolygon}
               className="rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold text-stone-700 shadow backdrop-blur hover:bg-red-50 hover:text-red-600 transition"
             >
-              <Trash2 size={14} className="inline mr-1" /> Clear Polygon
+              <Trash2 size={14} className="inline mr-1" /> Clear
             </button>
           )}
           {selected && (
@@ -219,15 +426,297 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
         {/* Drawing instruction */}
         {drawMode === "polygon" && (
           <div className="absolute bottom-3 left-3 rounded-lg bg-emerald-900/85 px-3 py-2 text-xs font-medium text-emerald-100 shadow-lg">
-            Click to place polygon vertices. First click on starting point to close.
+            Click to place polygon vertices. Double-click or click first point to close.
           </div>
         )}
       </div>
 
-      {/* Right panel — redesigned */}
-      <div className="flex flex-col gap-4 overflow-hidden">
-        {/* === SELECTION CARD === */}
-        {hasActiveSelection ? (
+      {/* Right panel */}
+      <div className="flex flex-col gap-4 overflow-y-auto">
+        {/* === DONE === */}
+        {mintStep === "done" && (
+          <div className="card-farm p-5 text-center">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-farm-100 text-farm-600">
+              <CheckCircle size={30} />
+            </div>
+            <h3 className="mt-3 text-base font-bold text-stone-800">Listing Submitted!</h3>
+            <p className="mt-1 text-sm text-stone-500">
+              Your parcel is listed as <span className="font-semibold text-harvest-600">Pending</span>.
+            </p>
+            <p className="mt-1 text-xs text-stone-400">
+              An admin will attest the NDVI data to complete verification.
+            </p>
+            {mintTxHash && (
+              <p className="mt-2 font-mono text-[10px] text-stone-400 break-all">
+                tx: {mintTxHash.slice(0, 30)}...
+              </p>
+            )}
+            {mintedNftId && (
+              <p className="mt-1 text-xs font-medium text-farm-700">
+                NFT #{mintedNftId} minted
+              </p>
+            )}
+            <button
+              onClick={() => { resetListingForm(); setMintStep("draw"); }}
+              className="btn-primary mt-4 w-full justify-center"
+            >
+              <Rocket size={16} /> List Another Parcel
+            </button>
+          </div>
+        )}
+
+        {/* === CREATING LISTING FORM (step "form" or "ndvi") === */}
+        {hasPolygon && (mintStep === "form" || mintStep === "ndvi") && (
+          <div className="card-farm overflow-y-auto p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
+                <MapPinned size={12} className="inline mr-1.5" />
+                Create Listing
+              </h3>
+              <button
+                onClick={clearPolygon}
+                className="rounded-lg p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Location summary */}
+            <div className="mb-4 rounded-lg bg-farm-50 px-3 py-2.5 text-xs text-farm-700">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <MapPin size={11} />
+                {polygonCoords.length} vertex polygon
+              </div>
+              <p className="mt-0.5 text-stone-500">
+                Center: {polygonCenter?.lat.toFixed(4)}, {polygonCenter?.lng.toFixed(4)}
+                {polygonCoords.length >= 3 && (
+                  <> &middot; ~{approximateHectares(polygonCoords).toFixed(1)} ha</>
+                )}
+              </p>
+              <div className="mt-1 grid grid-cols-4 gap-1 text-[10px] text-stone-400 font-mono">
+                <span>N:{displayBbox.north.toFixed(5)}</span>
+                <span>S:{displayBbox.south.toFixed(5)}</span>
+                <span>E:{displayBbox.east.toFixed(5)}</span>
+                <span>W:{displayBbox.west.toFixed(5)}</span>
+              </div>
+            </div>
+
+            {/* Form fields */}
+            <div className="space-y-3">
+              {/* Parcel Name */}
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
+                  <MapPin size={10} className="inline mr-1" /> Parcel Name
+                </label>
+                <input
+                  type="text"
+                  value={parcelName}
+                  onChange={(e) => setParcelName(e.target.value)}
+                  placeholder="e.g. Central Valley Field A"
+                  className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
+                />
+              </div>
+
+              {/* Crop Type */}
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
+                  <Sprout size={10} className="inline mr-1" /> Crop Type
+                </label>
+                <div className="grid grid-cols-5 gap-1 mb-1.5">
+                  {CROP_TYPES.map((ct) => (
+                    <button
+                      key={ct}
+                      onClick={() => setCropType(ct)}
+                      className={`rounded-md px-2 py-1 text-[11px] font-medium capitalize transition ${
+                        cropType === ct
+                          ? "bg-farm-900 text-white"
+                          : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+                      }`}
+                    >
+                      {ct}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setCropType("other")}
+                    className={`rounded-md px-2 py-1 text-[11px] font-medium transition ${
+                      cropType === "other"
+                        ? "bg-farm-900 text-white"
+                        : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+                    }`}
+                  >
+                    Other
+                  </button>
+                </div>
+                {cropType === "other" && (
+                  <input
+                    type="text"
+                    value={cropTypeCustom}
+                    onChange={(e) => setCropTypeCustom(e.target.value)}
+                    placeholder="Enter crop type..."
+                    className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-sm text-stone-800 outline-none focus:border-farm-400"
+                  />
+                )}
+              </div>
+
+              {/* Quantity + Price row */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
+                    <Scale size={10} className="inline mr-1" /> Quantity (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={quantityKg}
+                    onChange={(e) => setQuantityKg(e.target.value)}
+                    placeholder="5000"
+                    min={1}
+                    className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
+                    <DollarSign size={10} className="inline mr-1" /> Price (USDC)
+                  </label>
+                  <input
+                    type="number"
+                    value={priceUsdc}
+                    onChange={(e) => setPriceUsdc(e.target.value)}
+                    placeholder="250.00"
+                    min={0}
+                    step="0.01"
+                    className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
+                  />
+                </div>
+              </div>
+
+              {/* Total Yield + Region */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
+                    <Hash size={10} className="inline mr-1" /> Total Yield (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={totalYieldKg}
+                    onChange={(e) => setTotalYieldKg(e.target.value)}
+                    placeholder="10000"
+                    min={1}
+                    className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
+                    <User size={10} className="inline mr-1" /> Region
+                  </label>
+                  <input
+                    type="text"
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value)}
+                    placeholder="e.g. Nueva Ecija"
+                    className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
+                  />
+                </div>
+              </div>
+
+              {/* Harvest Date */}
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
+                  <Crosshair size={10} className="inline mr-1" /> Harvest Date
+                </label>
+                <input
+                  type="date"
+                  value={harvestDate}
+                  onChange={(e) => setHarvestDate(e.target.value)}
+                  className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
+                />
+              </div>
+
+              {/* NDVI action */}
+              {!ndviRun && (
+                <button
+                  type="button"
+                  onClick={() => setMintStep("ndvi")}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-farm-200 bg-farm-50 px-3 py-2 text-xs font-semibold text-farm-700 hover:bg-farm-100 transition"
+                >
+                  <Satellite size={13} />
+                  Run Satellite NDVI Check (optional)
+                </button>
+              )}
+
+              {ndviRun && ndviBpsResult !== null && (
+                <div className="rounded-lg border border-farm-200 bg-farm-50/30 px-3 py-2 text-xs">
+                  <span className="font-semibold text-farm-700">NDVI: {(ndviBpsResult / 100).toFixed(1)}%</span>
+                  <span className="ml-2 text-stone-400">Recorded</span>
+                </div>
+              )}
+
+              {/* Mint error */}
+              {mintError && (
+                <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 border border-red-100">
+                  {mintError}
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                onClick={handleMintSubmit}
+                disabled={!formValid || mintStep === "minting"}
+                className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
+                  formValid && mintStep !== "minting"
+                    ? "bg-stone-900 text-white hover:bg-stone-800 shadow-sm"
+                    : "bg-stone-100 text-stone-400 cursor-not-allowed"
+                }`}
+              >
+                {mintStep === "minting" ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    Minting Crop NFT...
+                  </>
+                ) : (
+                  <>
+                    <Rocket size={15} /> List Crop &mdash; Pending Attestation
+                  </>
+                )}
+              </button>
+              <p className="text-center text-[10px] text-stone-400 -mt-1.5">
+                After minting, an admin will attest NDVI to make it buyable.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* === NDVI step (expanded verification panel) === */}
+        {hasPolygon && mintStep === "ndvi" && (
+          <div className="card-farm flex-1 overflow-y-auto p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
+                <Satellite size={13} className="inline mr-1.5" />
+                Satellite NDVI Verification
+              </h3>
+              <button
+                onClick={() => setMintStep("form")}
+                className="rounded-lg p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+              >
+                <X size={14} />
+              </button>
+            </div>
+            <SatelliteVerificationPanel
+              nftId={0}
+              bbox={displayBbox}
+              minNdviBps={3500}
+              sampleGridSize={20}
+            />
+            <button
+              onClick={() => setMintStep("form")}
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 hover:bg-stone-50 transition"
+            >
+              <ChevronRight size={13} className="rotate-180" /> Back to Listing Form
+            </button>
+          </div>
+        )}
+
+        {/* === SELECTION CARD (existing parcels) === */}
+        {hasActiveSelection && !hasPolygon && (
           <div className="card-farm overflow-hidden">
             <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
@@ -241,7 +730,6 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
                 <X size={14} />
               </button>
             </div>
-
             <div className="p-4">
               {selected ? (
                 <>
@@ -255,53 +743,27 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
                   </div>
                 </>
               ) : (
-                <>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
-                      <Edit size={18} />
-                    </div>
-                    <div>
-                      <input
-                        type="text"
-                        value={draftLabel}
-                        onChange={(e) => setDraftLabel(e.target.value)}
-                        placeholder="Name this area..."
-                        className="w-full rounded-lg border border-stone-200 px-2.5 py-1.5 text-sm font-semibold text-stone-800 outline-none focus:border-emerald-400"
-                      />
-                      <p className="mt-0.5 text-[11px] text-stone-400">
-                        {polygonCoords.length} vertices &middot; center ({polygonCenter?.lat.toFixed(4)}, {polygonCenter?.lng.toFixed(4)})
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-1.5">
-                    <button
-                      onClick={handleBookmark}
-                      disabled={!hasPolygon}
-                      className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition"
-                    >
-                      <Bookmark size={13} /> Bookmark
-                    </button>
-                    <button
-                      onClick={clearPolygon}
-                      className="flex items-center justify-center gap-1.5 rounded-lg bg-stone-50 px-3 py-2 text-xs font-medium text-stone-500 hover:bg-stone-100 hover:text-stone-700 transition"
-                    >
-                      <Trash2 size={13} /> Discard
-                    </button>
-                  </div>
-                </>
+                <div className="flex flex-col items-center py-3">
+                  <p className="text-xs text-stone-400">Draw a polygon to create a new listing.</p>
+                </div>
               )}
             </div>
           </div>
-        ) : (
+        )}
+
+        {/* === NO SELECTION === */}
+        {!hasActiveSelection && mintStep === "draw" && (
           <div className="card-farm flex flex-col items-center justify-center p-5 text-center">
             <Target size={24} className="mb-2 text-stone-300" />
             <p className="text-xs font-medium text-stone-400">Select a parcel or draw a polygon</p>
-            <p className="mt-0.5 text-[11px] text-stone-300">to run satellite verification</p>
+            <p className="mt-0.5 text-[11px] text-stone-300">
+              Draw an area on the map to create a new listing with satellite verification
+            </p>
           </div>
         )}
 
-        {/* === SATELLITE VERIFICATION PANEL === */}
-        {activeNftId !== null && displayBbox.west !== 0 && (
+        {/* === SATELLITE VERIFICATION PANEL (existing parcels) === */}
+        {activeNftId !== null && !hasPolygon && displayBbox.west !== 0 && (
           <div className="card-farm flex-1 overflow-y-auto p-4">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-600">
               <Satellite size={13} className="inline mr-1.5" />
@@ -324,11 +786,6 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
                 <span>West</span>
                 <span className="font-mono">{displayBbox.west.toFixed(5)}</span>
               </div>
-              {hasPolygon && (
-                <div className="mt-2 border-t border-stone-200 pt-2 text-emerald-600">
-                  {polygonCoords.length} vertex polygon — custom area
-                </div>
-              )}
             </div>
             <SatelliteVerificationPanel
               nftId={selected?.id ?? 0}

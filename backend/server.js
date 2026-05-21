@@ -68,9 +68,9 @@ app.get("/api/listings", async (req, res) => {
 
 app.post("/api/listings", async (req, res) => {
   try {
-    const { nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, status } = req.body;
+    const { nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status } = req.body;
     if (!nftId || !farmerId) return res.status(400).json({ ok: false, error: "nftId and farmerId required" });
-    const listing = await upsertListing({ nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, status });
+    const listing = await upsertListing({ nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status });
     return res.json({ ok: true, listing });
   } catch (err) {
     console.error("POST /api/listings:", err);

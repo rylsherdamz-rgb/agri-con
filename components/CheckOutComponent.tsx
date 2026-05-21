@@ -8,9 +8,10 @@ interface CheckOutProps {
   listing: LiveListing;
   onConfirm?: () => void;
   onCancel?: () => void;
+  confirming?: boolean;
 }
 
-export default function CheckOutComponent({ listing, onConfirm, onCancel }: CheckOutProps) {
+export default function CheckOutComponent({ listing, onConfirm, onCancel, confirming }: CheckOutProps) {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [aiRec, setAiRec] = useState<string | null>(null);
   const [aiLabel, setAiLabel] = useState<string | null>(null);
@@ -195,9 +196,10 @@ export default function CheckOutComponent({ listing, onConfirm, onCancel }: Chec
         )}
         <button
           onClick={onConfirm}
-          className="flex-1 rounded-xl bg-emerald-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 active:scale-[0.98]"
+          disabled={!onConfirm || confirming}
+          className="flex-1 rounded-xl bg-emerald-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 active:scale-[0.98] disabled:opacity-50"
         >
-          Confirm Purchase
+          {confirming ? <><Loader2 size={16} className="animate-spin mr-1" /> Processing...</> : "Confirm Purchase"}
         </button>
       </div>
     </div>

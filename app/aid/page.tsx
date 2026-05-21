@@ -3,6 +3,7 @@
 import { useState } from "react";
 import NavigationBar from "@/components/NavigationBar";
 import { useWallet } from "@/components/stellar/wallet-context";
+import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
 import { AlertTriangle, Send, Loader2, History, CheckCircle, XCircle, Clock } from "lucide-react";
 
 type Claim = {
@@ -24,27 +25,33 @@ export default function AidPage() {
     if (!address || !nftId || !reason) return;
     setSubmitting(true);
     try {
-      const res = await fetch("/api/stellar", {
+      const prepareRes = await fetch("/api/stellar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "prepare_submit_proof",
+          farmer: address,
           nftId: parseInt(nftId, 10),
           proofHash: reason.slice(0, 64),
         }),
       });
-      const data = await res.json();
-      if (data.ok) {
-        setClaims((prev) => [{
-          id: String(Date.now()),
-          nftId: parseInt(nftId, 10),
-          reason,
-          timestamp: Date.now(),
-          status: "pending",
-        }, ...prev]);
-        setNftId("");
-        setReason("");
+      const prepared = await prepareRes.json();
+      if (!prepared.xdr) {
+        throw new Error(prepared.error ?? "Failed to prepare proof submission");
       }
+
+      const { signedTxXdr } = await signPreparedXdr(address, prepared.xdr);
+      const submission = await submitSignedXdr(signedTxXdr);
+
+      setClaims((prev) => [{
+        id: String(Date.now()),
+        nftId: parseInt(nftId, 10),
+        reason,
+        timestamp: Date.now(),
+        status: "pending",
+      }, ...prev]);
+      setNftId("");
+      setReason("");
     } catch {} finally {
       setSubmitting(false);
     }

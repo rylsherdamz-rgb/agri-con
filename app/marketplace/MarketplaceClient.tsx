@@ -120,6 +120,12 @@ function ListingCard({ listing }: { listing: LiveListing }) {
             <span className="tabular-nums">{listing.quantityKg.toLocaleString()} kg</span>
           </div>
         )}
+        {listing.totalYieldKg !== null && listing.totalYieldKg > 0 && (
+          <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
+            <Sprout size={13} className="text-farm-600 shrink-0" />
+            <span className="tabular-nums">{listing.totalYieldKg.toLocaleString()} kg yield</span>
+          </div>
+        )}
         {listing.minNdviBps !== null && (
           <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
             <TrendingUp size={13} className="text-farm-600 shrink-0" />
