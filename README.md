@@ -73,7 +73,7 @@ USDC Token: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
 ## 🎥 Demo
 
 - 🔗 **Live App:** [https://agri-con.vercel.app](https://agri-con-one.vercel.app)
-    **Demo Video:** [https://drive.google.com/file/d/1fC30xbL83Zp3TbBVPNc2dasBVJP7s4Ct/view?usp=sharing](https://drive.google.com/file/d/1fC30xbL83Zp3TbBVPNc2dasBVJP7s4Ct/view?usp=sharing)
+    **Demo Video:** [https://drive.google.com/file/d/1EwNXFKI3atXG2BgoWjiF1JYBmg4HaYS6/view?usp=sharing](https://drive.google.com/file/d/1EwNXFKI3atXG2BgoWjiF1JYBmg4HaYS6/view?usp=sharing)
 - 🖼️ **Pitch Deck:** [Presentation.pdf](./public/Presentation.pdf)
 
 ## 📂 Project Structure
