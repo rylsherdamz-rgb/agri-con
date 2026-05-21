@@ -75,6 +75,7 @@ Not yet deployed. Targeting mainnet after testnet validation and auditor review.
 ## 🎥 Demo
 
 - 🔗 **Live App:** [https://agri-con.vercel.app](https://agri-con-one.vercel.app)
+    **Demo Video:** [https://drive.google.com/file/d/1fC30xbL83Zp3TbBVPNc2dasBVJP7s4Ct/view?usp=sharing](https://drive.google.com/file/d/1fC30xbL83Zp3TbBVPNc2dasBVJP7s4Ct/view?usp=sharing)
 - 🖼️ **Pitch Deck:** [Presentation.pdf](./public/Presentation.pdf)
 
 ## 📂 Project Structure
