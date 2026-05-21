@@ -59,3 +59,4 @@ next-env.d.ts
 # prisma cache
 .prisma/
 *.db-journal
+agri-con-*-firebase-*.json

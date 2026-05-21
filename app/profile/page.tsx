@@ -3,19 +3,22 @@
 import { useEffect, useState } from "react";
 import { useWallet } from "@/components/stellar/wallet-context";
 import NavigationBar from "@/components/NavigationBar";
-import { CheckCircle, XCircle, User, Upload, Loader2, BadgeCheck, Plus, ShieldAlert, Sprout, MapPin } from "lucide-react";
+import { CheckCircle, XCircle, User, Upload, Loader2, BadgeCheck, Plus, ShieldAlert, Sprout } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
 import Link from "next/link";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
+
 type FarmerProfile = {
-  farmer: string;
+  id: string;
   fullName: string;
   farmName: string;
   region: string;
-  governmentIdObject: string;
-  verified: boolean;
   totalYieldKg: number;
-  updatedAt: number;
+  idDocPath: string | null;
+  verified: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export default function ProfilePage() {
@@ -35,23 +38,51 @@ export default function ProfilePage() {
     async function fetchProfile() {
       setLoading(true);
       try {
-        const res = await fetch("/api/stellar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "get_farmer_profile", farmerAddress: address }),
+        const res = await fetch(`${BACKEND_URL}/api/profile?address=${encodeURIComponent(address)}`, {
           signal: ctrl.signal,
         });
         const data = await res.json();
-        if (!ctrl.signal.aborted && data.ok) {
+        if (!ctrl.signal.aborted && data.ok && data.profile) {
           setProfile(data.profile);
           setForm({
-            fullName: data.profile?.fullName || "",
-            farmName: data.profile?.farmName || "",
-            region: data.profile?.region || "",
-            totalYieldKg: String(data.profile?.totalYieldKg || ""),
+            fullName: data.profile.fullName || "",
+            farmName: data.profile.farmName || "",
+            region: data.profile.region || "",
+            totalYieldKg: String(data.profile.totalYieldKg || ""),
           });
         }
-      } catch {} finally {
+      } catch {
+        // Backend unavailable — try blockchain
+        try {
+          const res = await fetch("/api/stellar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "get_farmer_profile", farmerAddress: address }),
+            signal: ctrl.signal,
+          });
+          const data = await res.json();
+          if (!ctrl.signal.aborted && data.ok && data.profile) {
+            const p = data.profile;
+            setProfile({
+              id: p.farmer || address,
+              fullName: p.fullName || "",
+              farmName: p.farmName || "",
+              region: p.region || "",
+              totalYieldKg: p.totalYieldKg || 0,
+              idDocPath: p.governmentIdObject || null,
+              verified: p.verified ?? false,
+              createdAt: "",
+              updatedAt: "",
+            });
+            setForm({
+              fullName: p.fullName || "",
+              farmName: p.farmName || "",
+              region: p.region || "",
+              totalYieldKg: String(p.totalYieldKg || ""),
+            });
+          }
+        } catch {}
+      } finally {
         if (!ctrl.signal.aborted) setLoading(false);
       }
     }
@@ -64,12 +95,11 @@ export default function ProfilePage() {
     if (!address) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/stellar", {
+      const res = await fetch(`${BACKEND_URL}/api/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "prepare_upsert_farmer_profile",
-          farmerAddress: address,
+          address,
           fullName: form.fullName,
           farmName: form.farmName,
           region: form.region,
@@ -79,19 +109,21 @@ export default function ProfilePage() {
       const data = await res.json();
       if (data.ok) {
         setProfile({
-          farmer: address,
-          fullName: form.fullName,
-          farmName: form.farmName,
-          region: form.region,
-          governmentIdObject: profile?.governmentIdObject || "",
-          verified: profile?.verified ?? false,
-          totalYieldKg: parseInt(form.totalYieldKg, 10) || 0,
-          updatedAt: Math.floor(Date.now() / 1000),
+          id: data.profile.id || address,
+          fullName: data.profile.fullName,
+          farmName: data.profile.farmName,
+          region: data.profile.region,
+          totalYieldKg: data.profile.totalYieldKg,
+          idDocPath: data.profile.idDocPath || null,
+          verified: data.profile.verified ?? false,
+          createdAt: data.profile.createdAt || "",
+          updatedAt: data.profile.updatedAt || "",
         });
         setEditMode(false);
-        alert("Profile saved! Sign the transaction in your wallet.");
       }
-    } catch {} finally {
+    } catch {
+      alert("Failed to save profile. Backend may be unavailable.");
+    } finally {
       setSaving(false);
     }
   }
@@ -108,14 +140,14 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.ok && data.uploadUrl) {
-        const putRes = await fetch(data.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+        const putRes = await fetch(data.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type, "x-goog-content-length-range": `0,10485760` }, body: file });
         if (putRes.ok) {
           setUploadMsg("ID uploaded successfully. Awaiting verification.");
         } else {
           setUploadMsg("Upload failed. Check your GCS bucket configuration.");
         }
       } else {
-        setUploadMsg("Could not get upload URL. GCP bucket may not be configured.");
+        setUploadMsg(data.error || "Could not get upload URL. GCP bucket may not be configured.");
       }
     } catch {
       setUploadMsg("Network error. Try again.");
@@ -172,7 +204,6 @@ export default function ProfilePage() {
         ) : (
           <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
             <div className="space-y-6">
-              {/* Profile card */}
               <div className="card-farm p-6">
                 <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
@@ -263,7 +294,6 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {/* ID Upload */}
               <div className="card-farm p-6">
                 <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-stone-600">Government ID</h3>
                 {uploadMsg && (
@@ -282,22 +312,19 @@ export default function ProfilePage() {
                   <input type="file" accept="image/png,image/jpeg,application/pdf" className="hidden"
                     onChange={(e) => { const f = e.target.files?.[0]; if (f) handleIdUpload(f); }} />
                 </label>
-                {profile?.governmentIdObject && (
-                  <p className="mt-2 text-xs text-stone-400">Uploaded: {truncate(profile.governmentIdObject, 24)}</p>
+                {profile?.idDocPath && (
+                  <p className="mt-2 text-xs text-stone-400">Uploaded: {truncate(profile.idDocPath, 24)}</p>
                 )}
               </div>
             </div>
 
-            {/* Sidebar */}
             <div className="space-y-4">
-              {/* Wallet card */}
               <div className="card-farm p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Wallet</p>
                 <p className="mt-2 break-all font-mono text-xs text-stone-600">{truncate(address, 18)}</p>
                 <p className="mt-1 text-[10px] text-stone-400">Stellar Testnet</p>
               </div>
 
-              {/* Verification card */}
               <div className="card-farm p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Status</p>
                 {isVerified ? (
