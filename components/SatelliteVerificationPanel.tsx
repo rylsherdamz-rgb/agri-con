@@ -12,6 +12,8 @@ type Props = {
   minNdviBps?: number;
   temporalExtent?: { start: string; end: string };
   sampleGridSize?: number;
+  onNdviResult?: (ndviBps: number) => void;
+  compact?: boolean;
 };
 
 type RunResponse =
@@ -30,7 +32,6 @@ type RunResponse =
         reportHash: string;
         source: string;
       };
-      oracleAddress: string | null;
       preparedRecordAttestation: {
         xdr: string;
         hash: string;
@@ -66,6 +67,8 @@ export default function SatelliteVerificationPanel({
   minNdviBps = 3500,
   temporalExtent,
   sampleGridSize = 16,
+  onNdviResult,
+  compact,
 }: Props) {
   const { address, connect } = useWallet();
   const [isRunning, setIsRunning] = useState(false);
@@ -80,12 +83,9 @@ export default function SatelliteVerificationPanel({
   const [showDetails, setShowDetails] = useState(false);
 
   const busy = isRunning || isApplying;
-  const requiredOracle = result?.ok ? result.oracleAddress : null;
   const canApply =
     result?.ok &&
-    Boolean(result.preparedRecordAttestation) &&
-    Boolean(requiredOracle) &&
-    (!address || address === requiredOracle);
+    Boolean(result.preparedRecordAttestation);
 
   const fetchSummary = useCallback(
     async (rawBps: number) => {
@@ -130,6 +130,7 @@ export default function SatelliteVerificationPanel({
       if (json.ok) {
         setPreparedHash(json.preparedRecordAttestation?.hash ?? null);
         void fetchSummary(json.ndviBps);
+        onNdviResult?.(json.ndviBps);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to run verification");
@@ -139,7 +140,7 @@ export default function SatelliteVerificationPanel({
   }
 
   async function applyBuyable() {
-    if (!result?.ok || !result.preparedRecordAttestation || !result.oracleAddress) {
+    if (!result?.ok || !result.preparedRecordAttestation) {
       setError("No prepared attestation transaction is available.");
       return;
     }
@@ -147,16 +148,11 @@ export default function SatelliteVerificationPanel({
     setIsApplying(true);
     setError(null);
     try {
-      const admin = address ?? (await connect());
-      if (!admin) throw new Error("Connect wallet first.");
-      if (admin !== result.oracleAddress) {
-        throw new Error(
-          `Connect the oracle wallet ${shortAddress(result.oracleAddress)} to continue.`,
-        );
-      }
+      const signer = address ?? (await connect());
+      if (!signer) throw new Error("Connect wallet first.");
 
       const { signedTxXdr, hash } = await signPreparedXdr(
-        admin,
+        signer,
         result.preparedRecordAttestation.xdr,
       );
       setPreparedHash(hash);
@@ -300,13 +296,9 @@ export default function SatelliteVerificationPanel({
             {isApplying ? "Signing..." : "Record attestation on-chain"}
           </button>
 
-          {!canApply && result.oracleAddress && (
+          {!canApply && result?.oracleAddress && (
             <p className="mt-2 text-center text-[11px] text-stone-400">
-              Connect the oracle wallet{" "}
-              <span className="font-mono">
-                {shortAddress(result.oracleAddress)}
-              </span>{" "}
-              to submit.
+              Connect your wallet to record attestation.
             </p>
           )}
         </div>

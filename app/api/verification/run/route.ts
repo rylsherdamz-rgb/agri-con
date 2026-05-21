@@ -281,15 +281,15 @@ export async function POST(req: Request) {
 
     // Prepare a contract call to record the attestation and update buyability.
     // Skip on-chain attestation for preview mode (nftId === 0).
-    const oracleAddress =
-      process.env.ORACLE_ADDRESS ??
-      process.env.NEXT_PUBLIC_ORACLE_ADDRESS ??
-      null;
+    const adminAddress =
+      process.env.TREASURY_ADDRESS ??
+      process.env.NEXT_PUBLIC_TREASURY_ADDRESS ??
+      "";
     let prepared: PreparedTx | null = null;
-    if (!isPreview && oracleAddress) {
+    if (!isPreview && adminAddress) {
       try {
         prepared = (await prepareRecordSatelliteAttestationByOracle({
-          oracle: oracleAddress,
+          oracle: adminAddress,
           nftId: body.nftId,
           observedAt,
           ndviBps,
@@ -333,7 +333,6 @@ export async function POST(req: Request) {
         reportHash,
         source,
       } satisfies AttestationPayload,
-      oracleAddress,
       preparedRecordAttestation: prepared,
     });
   } catch (error) {

@@ -126,7 +126,8 @@ export async function POST(request: Request) {
 
       case "get_all_listings": {
         try {
-          const listings = await getLiveListings();
+          const all = await getLiveListings();
+          const listings = all.filter((l) => l.cropType !== null);
           return Response.json({ ok: true, listings });
         } catch {
           return Response.json({ ok: true, listings: [] });

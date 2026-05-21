@@ -24,7 +24,8 @@ import {
   Hash,
 } from "lucide-react";
 import ParcelMap from "@/components/ParcelMap";
-import SatelliteVerificationPanel from "@/components/SatelliteVerificationPanel"; import { useWallet } from "@/components/stellar/wallet-context";
+import SatelliteVerificationPanel from "@/components/SatelliteVerificationPanel";
+import { useWallet } from "@/components/stellar/wallet-context";
 import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
@@ -99,9 +100,9 @@ type BookmarkEntry = {
   createdAt: number;
 };
 
-type MintStep = "draw" | "form" | "ndvi" | "minting" | "done";
+type MintStep = "draw" | "form" | "minting" | "done";
 
-export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
+export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: Parcel[] }) {
   const { address, connect } = useWallet();
   const [selected, setSelected] = useState<Parcel | null>(null);
   const [bbox, setBbox] = useState({ west: 0, south: 0, east: 0, north: 0 });
@@ -110,6 +111,17 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
   const [polygonCenter, setPolygonCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [draftLabel, setDraftLabel] = useState("");
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
+  const [mintedParcels, setMintedParcels] = useState<Parcel[]>([]);
+
+  const parcels = useMemo(() => {
+    const all = [...mintedParcels, ...serverParcels];
+    const seen = new Set<number>();
+    return all.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+  }, [mintedParcels, serverParcels]);
 
   // Listing form state
   const [mintStep, setMintStep] = useState<MintStep>("draw");
@@ -322,6 +334,17 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
         const newNftId = maxId + 1;
         setMintedNftId(newNftId);
 
+        setMintedParcels((prev) => [...prev, {
+          id: newNftId,
+          title: name,
+          lat: polygonCenter?.lat ?? bbox.north,
+          lng: polygonCenter?.lng ?? bbox.east,
+          temporalExtent: { start: "2026-04-19T00:00:00Z", end: "2026-05-19T23:59:59Z" },
+          region: reg,
+          ndviBps: ndviBpsResult,
+          buyable: false,
+        }]);
+
         await fetch(`${BACKEND_URL}/api/listings`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -355,9 +378,9 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
 
   const hasPolygon = polygonCoords.length >= 3;
   const hasActiveSelection = selected !== null || hasPolygon;
-  const displayBbox = hasActiveSelection
+  const displayBbox = hasPolygon
     ? bbox
-    : selected
+    : selected && !selected.noCoords
       ? bbox
       : { west: 0, south: 0, east: 0, north: 0 };
 
@@ -468,8 +491,8 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
           </div>
         )}
 
-        {/* === CREATING LISTING FORM (step "form" or "ndvi") === */}
-        {hasPolygon && (mintStep === "form" || mintStep === "ndvi") && (
+        {/* === CREATING LISTING FORM === */}
+        {hasPolygon && mintStep === "form" && (
           <div className="card-farm overflow-y-auto p-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
@@ -634,22 +657,28 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
                 />
               </div>
 
-              {/* NDVI action */}
-              {!ndviRun && (
-                <button
-                  type="button"
-                  onClick={() => setMintStep("ndvi")}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-farm-200 bg-farm-50 px-3 py-2 text-xs font-semibold text-farm-700 hover:bg-farm-100 transition"
-                >
-                  <Satellite size={13} />
-                  Run Satellite NDVI Check (optional)
-                </button>
-              )}
+              {/* Satellite NDVI Verification (always shown, not optional) */}
+              <div className="rounded-lg border border-farm-200 bg-farm-50/20 p-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase text-farm-700">
+                  <Satellite size={11} className="inline mr-1" /> NDVI Satellite Check
+                </p>
+                <SatelliteVerificationPanel
+                  nftId={0}
+                  bbox={displayBbox}
+                  minNdviBps={3500}
+                  sampleGridSize={20}
+                  compact
+                  onNdviResult={(bps) => {
+                    setNdviBpsResult(bps);
+                    setNdviRun(true);
+                  }}
+                />
+              </div>
 
-              {ndviRun && ndviBpsResult !== null && (
+              {ndviBpsResult !== null && (
                 <div className="rounded-lg border border-farm-200 bg-farm-50/30 px-3 py-2 text-xs">
                   <span className="font-semibold text-farm-700">NDVI: {(ndviBpsResult / 100).toFixed(1)}%</span>
-                  <span className="ml-2 text-stone-400">Recorded</span>
+                  <span className="ml-2 text-stone-400">Recorded for mint</span>
                 </div>
               )}
 
@@ -688,73 +717,7 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
           </div>
         )}
 
-        {/* === NDVI step (expanded verification panel) === */}
-        {hasPolygon && mintStep === "ndvi" && (
-          <div className="card-farm flex-1 overflow-y-auto p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
-                <Satellite size={13} className="inline mr-1.5" />
-                Satellite NDVI Verification
-              </h3>
-              <button
-                onClick={() => setMintStep("form")}
-                className="rounded-lg p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <SatelliteVerificationPanel
-              nftId={0}
-              bbox={displayBbox}
-              minNdviBps={3500}
-              sampleGridSize={20}
-            />
-            <button
-              onClick={() => setMintStep("form")}
-              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-medium text-stone-600 hover:bg-stone-50 transition"
-            >
-              <ChevronRight size={13} className="rotate-180" /> Back to Listing Form
-            </button>
-          </div>
-        )}
-
-        {/* === SELECTION CARD (existing parcels) === */}
-        {hasActiveSelection && !hasPolygon && (
-          <div className="card-farm overflow-hidden">
-            <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
-                <Target size={12} className="inline mr-1.5" />
-                {selected ? "Selected Parcel" : "Drawn Area"}
-              </h3>
-              <button
-                onClick={selected ? handleClearSelection : clearPolygon}
-                className="rounded-lg p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <div className="p-4">
-              {selected ? (
-                <>
-                  <p className="text-base font-bold text-stone-800">{selected.title}</p>
-                  <p className="mt-0.5 text-xs text-stone-400">
-                    {selected.region ?? "Unknown region"}
-                    {selected.ndviBps !== null && <> &middot; NDVI {(selected.ndviBps / 100).toFixed(0)}%</>}
-                  </p>
-                  <div className="mt-3 flex items-center gap-2 text-xs text-stone-500">
-                    {selected.lat.toFixed(4)}N, {selected.lng.toFixed(4)}E
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center py-3">
-                  <p className="text-xs text-stone-400">Draw a polygon to create a new listing.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* === NO SELECTION === */}
+{/* === NO SELECTION === */}
         {!hasActiveSelection && mintStep === "draw" && (
           <div className="card-farm flex flex-col items-center justify-center p-5 text-center">
             <Target size={24} className="mb-2 text-stone-300" />
@@ -766,29 +729,17 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
         )}
 
         {/* === SATELLITE VERIFICATION PANEL (existing parcels) === */}
-        {activeNftId !== null && !hasPolygon && displayBbox.west !== 0 && (
+        {activeNftId !== null && !hasPolygon && !selected?.noCoords && (
           <div className="card-farm flex-1 overflow-y-auto p-4">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-600">
               <Satellite size={13} className="inline mr-1.5" />
               Satellite Verification
             </h3>
             <div className="mb-3 rounded-lg bg-stone-50 p-3 text-xs text-stone-500">
-              <div className="flex justify-between">
-                <span>North</span>
-                <span className="font-mono">{displayBbox.north.toFixed(5)}</span>
-              </div>
-              <div className="flex justify-between mt-0.5">
-                <span>South</span>
-                <span className="font-mono">{displayBbox.south.toFixed(5)}</span>
-              </div>
-              <div className="flex justify-between mt-0.5">
-                <span>East</span>
-                <span className="font-mono">{displayBbox.east.toFixed(5)}</span>
-              </div>
-              <div className="flex justify-between mt-0.5">
-                <span>West</span>
-                <span className="font-mono">{displayBbox.west.toFixed(5)}</span>
-              </div>
+              <div className="flex justify-between"><span>North</span><span className="font-mono">{displayBbox.north.toFixed(5)}</span></div>
+              <div className="flex justify-between mt-0.5"><span>South</span><span className="font-mono">{displayBbox.south.toFixed(5)}</span></div>
+              <div className="flex justify-between mt-0.5"><span>East</span><span className="font-mono">{displayBbox.east.toFixed(5)}</span></div>
+              <div className="flex justify-between mt-0.5"><span>West</span><span className="font-mono">{displayBbox.west.toFixed(5)}</span></div>
             </div>
             <SatelliteVerificationPanel
               nftId={selected?.id ?? 0}

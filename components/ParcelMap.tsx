@@ -18,6 +18,7 @@ type Props = {
   onPolygonComplete?: (coords: { lat: number; lng: number }[]) => void;
   polygonCoords?: { lat: number; lng: number }[];
   polygonCenter?: { lat: number; lng: number } | null;
+  savedPolygons?: { id: number; coords: { lat: number; lng: number }[]; center: { lat: number; lng: number } }[];
 };
 
 type GMap = {
@@ -82,6 +83,7 @@ export default function ParcelMap({
   onPolygonComplete,
   polygonCoords = [],
   polygonCenter,
+  savedPolygons = [],
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Record<string, unknown> | null>(null);
@@ -141,7 +143,7 @@ export default function ParcelMap({
     });
   }, [markers, onSelectMarker]);
 
-  // Rectangle
+  // Rectangle + pan for selected marker
   useEffect(() => {
     const gmap = (window as unknown as GoogleWindow).google?.maps as GMap | undefined;
     if (!gmap || !mapRef.current) return;
@@ -152,7 +154,10 @@ export default function ParcelMap({
     }
 
     const active = markers.find((m) => m.id === activeMarkerId);
-    if (!active) return;
+    if (!active || (active.lat === 0 && active.lng === 0)) {
+      if (rectRef.current) { rectRef.current.setMap(null); rectRef.current = null; }
+      return;
+    }
 
     (mapRef.current as { panTo?: (p: unknown) => void }).panTo?.({ lat: active.lat, lng: active.lng });
     (mapRef.current as { setZoom?: (z: number) => void }).setZoom?.(13);
@@ -265,6 +270,12 @@ export default function ParcelMap({
       const m = new gmap.marker.AdvancedMarkerElement({
         map: mapRef.current, position: polygonCenter, title: "Area Center", gmpClickable: true,
       });
+      try {
+        (m as { addListener: (e: string, h: () => void) => void }).addListener("gmp-click", () => {
+          const active = markers.find((mk) => mk.lat === polygonCenter.lat && mk.lng === polygonCenter.lng);
+          if (active) onSelectMarker(active.id);
+        });
+      } catch {}
       centerMarkerRef.current = m;
     }
   }, [polygonCoords, polygonCenter]);

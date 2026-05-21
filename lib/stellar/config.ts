@@ -12,7 +12,7 @@ export const STELLAR_HORIZON_URL =
 
 export const CONTRACT_IDS = {
   agriCon: process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
-  cropNft: process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
-  escrow: process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
-  verification: process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
+  cropNft: process.env.NEXT_PUBLIC_CROP_NFT_CONTRACT_ID ?? process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
+  escrow: process.env.NEXT_PUBLIC_ESCROW_CONTRACT_ID ?? process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
+  verification: process.env.NEXT_PUBLIC_VERIFICATION_CONTRACT_ID ?? process.env.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID ?? "",
 } as const;

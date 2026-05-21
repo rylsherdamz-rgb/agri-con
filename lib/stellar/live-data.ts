@@ -72,11 +72,15 @@ function getProbeAddress() {
 }
 
 function parseNftIds() {
-  const raw = process.env.ACTIVE_NFT_IDS ?? process.env.NEXT_PUBLIC_ACTIVE_NFT_IDS ?? "1";
-  return raw
-    .split(",")
-    .map((value) => Number(value.trim()))
-    .filter((value) => Number.isInteger(value) && value > 0);
+  const raw = process.env.ACTIVE_NFT_IDS ?? process.env.NEXT_PUBLIC_ACTIVE_NFT_IDS ?? null;
+  if (raw) {
+    return raw
+      .split(",")
+      .map((value) => Number(value.trim()))
+      .filter((value) => Number.isInteger(value) && value > 0);
+  }
+  const max = parseInt(process.env.NFT_MAX_ID ?? process.env.NEXT_PUBLIC_NFT_MAX_ID ?? "20", 10);
+  return Array.from({ length: max }, (_, i) => i + 1);
 }
 
 function parseFarmerAddresses() {
