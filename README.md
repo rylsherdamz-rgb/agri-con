@@ -65,7 +65,7 @@ Three Soroban smart contracts deployed and verified:
 
 USDC Token: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
 
-📸 Stellar Expert — Crop NFT Contract  
+📸 Stellar Expert — Crop NFT Contract
 ![Testnet Screenshot](./screenshots/testnet.png)
 
 ### Mainnet
@@ -75,6 +75,7 @@ Not yet deployed. Targeting mainnet after testnet validation and auditor review.
 ## 🎥 Demo
 
 - 🔗 **Live App:** [https://agri-con.vercel.app](https://agri-con.vercel.app)
+- 🖼️ **Pitch Deck:** [Presentation.pdf](./public/Presentation.pdf)
 
 ## 📂 Project Structure
 
@@ -108,7 +109,7 @@ agri-con/
 
 | Name | Role | GitHub |
 |---|---|---|
-| Ryl Sherdamz | Full-Stack & Smart Contract Developer | [@rylsherdamz-rgb](https://github.com/rylsherdamz-rgb) |
+| Richie Christian De Guzman | Full-Stack & Smart Contract Developer | [@rylsherdamz-rgb](https://github.com/rylsherdamz-rgb) |
 
 ## 📜 License
 
