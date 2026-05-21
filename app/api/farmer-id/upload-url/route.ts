@@ -1,5 +1,7 @@
 export const runtime = "nodejs";
 
+import { Storage } from "@google-cloud/storage";
+
 type Body = {
   farmerAddress: string;
   fileName: string;
@@ -28,42 +30,10 @@ export async function POST(req: Request) {
       );
     }
 
-    type StorageLike = new (opts?: { credentials?: Record<string, unknown> }) => {
-      bucket: (name: string) => {
-        file: (path: string) => {
-          getSignedUrl: (opts: {
-            version: "v4";
-            action: "write";
-            expires: number;
-            contentType: string;
-          }) => Promise<[string]>;
-        };
-      };
-    };
-
-    let StorageCtor: StorageLike;
-    try {
-      const dynamicImport = new Function(
-        "moduleName",
-        "return import(moduleName);",
-      ) as (moduleName: string) => Promise<Record<string, unknown>>;
-      const storageModule = await dynamicImport("@google-cloud/storage");
-      StorageCtor = storageModule.Storage as StorageLike;
-    } catch {
-      return Response.json(
-        {
-          ok: false,
-          error:
-            "Google Cloud Storage SDK not installed. Run: npm i @google-cloud/storage",
-        },
-        { status: 500 },
-      );
-    }
-
     const serviceAccountJson = process.env.GCP_SERVICE_ACCOUNT_JSON;
     const storage = serviceAccountJson
-      ? new StorageCtor({ credentials: JSON.parse(serviceAccountJson) })
-      : new StorageCtor();
+      ? new Storage({ credentials: JSON.parse(serviceAccountJson) })
+      : new Storage();
 
     const safeName = sanitizeFileName(body.fileName);
     const objectPath = `farmer-ids/${body.farmerAddress}/${Date.now()}-${safeName}`;
