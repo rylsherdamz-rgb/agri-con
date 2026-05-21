@@ -144,13 +144,19 @@ function ListingCard({ listing, onBuy }: { listing: LiveListing; onBuy: () => vo
       )}
 
       {/* Buy button */}
-      <button
-        onClick={onBuy}
-        className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-farm-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-farm-800 active:scale-[0.98]"
-      >
-        <ShoppingBag size={15} />
-        Buy Now
-      </button>
+      {listing.buyable ? (
+        <button
+          onClick={onBuy}
+          className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-farm-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-farm-800 active:scale-[0.98]"
+        >
+          <ShoppingBag size={15} />
+          Buy Now
+        </button>
+      ) : (
+        <div className="mt-3 rounded-xl bg-stone-100 px-4 py-2.5 text-center text-xs font-medium text-stone-400">
+          Awaiting satellite verification
+        </div>
+      )}
     </div>
   );
 }
@@ -163,6 +169,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
   });
   const [checkoutListing, setCheckoutListing] = useState<LiveListing | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return listings.filter((l) => {
@@ -193,6 +200,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
   async function handleConfirm() {
     if (!address || !checkoutListing) return;
     setConfirming(true);
+    setBuyError(null);
     try {
       const { signedTxXdr } = await buyCropNft({
         buyer: address,
@@ -201,6 +209,8 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
       await submitSignedXdr(signedTxXdr);
       setCheckoutListing(null);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : "Purchase failed";
+      setBuyError(msg);
       console.error("Purchase failed:", e);
     } finally {
       setConfirming(false);
@@ -209,12 +219,21 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
 
   if (checkoutListing) {
     return (
-      <CheckOutComponent
-        listing={checkoutListing}
-        onConfirm={handleConfirm}
-        onCancel={() => setCheckoutListing(null)}
-        confirming={confirming}
-      />
+      <div className="flex min-h-screen flex-col bg-stone-50">
+        <div className="mx-auto w-full max-w-lg flex-1 px-4 py-10 sm:px-6">
+          {buyError && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {buyError}
+            </div>
+          )}
+          <CheckOutComponent
+            listing={checkoutListing}
+            onConfirm={handleConfirm}
+            onCancel={() => { setCheckoutListing(null); setBuyError(null); }}
+            confirming={confirming}
+          />
+        </div>
+      </div>
     );
   }
 

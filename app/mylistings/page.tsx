@@ -5,7 +5,7 @@ import { useWallet } from "@/components/stellar/wallet-context";
 import NavigationBar from "@/components/NavigationBar";
 import Link from "next/link";
 import {
-  MapPin, Plus, Leaf, DollarSign, Scale, CheckCircle, XCircle,Clock, ChevronRight, Sprout, List, Loader2, TrendingUp,
+  MapPin, Plus, Leaf, DollarSign, Scale, CheckCircle, XCircle, Clock, ChevronRight, Sprout, List, TrendingUp,
 } from "lucide-react";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
@@ -87,42 +87,63 @@ export default function MyListingsPage() {
     async function load() {
       setLoading(true);
       setError(null);
+      setListings([]);
+
+      const mapBackendListings = (data: unknown): LiveListing[] => {
+        const arr = data as Record<string, unknown>[];
+        if (!Array.isArray(arr) || arr.length === 0) return [];
+        return arr.map((l: Record<string, unknown>) => ({
+          nftId: (l.nftId ?? l.nft_id) as number,
+          cropType: (l.cropType ?? l.crop_type ?? null) as string | null,
+          quantityKg: (l.quantityKg ?? l.quantity_kg ?? null) as number | null,
+          priceUsdc: l.priceUsdc != null ? String(l.priceUsdc) : (l.price_usdc != null ? String(l.price_usdc) : null),
+          farmer: (l.farmerId ?? l.farmer_id ?? address) as string,
+          harvestDate: null,
+          cropStatus: null,
+          buyable: Boolean(l.buyable),
+          observedAt: null,
+          ndviBps: (l.ndviBps ?? l.ndvi_bps ?? null) as number | null,
+          minNdviBps: (l.minNdviBps ?? l.min_ndvi_bps ?? null) as number | null,
+          source: null,
+          parcelName: (l.parcelName ?? l.parcel_name ?? null) as string | null,
+          parcelBboxHash: null,
+          parcelAreaHectares: (l.areaHa ?? l.area_ha ?? null) as number | null,
+          region: (l.region ?? null) as string | null,
+          observationWindowDays: null,
+          totalYieldKg: (l.totalYieldKg ?? l.total_yield_kg ?? null) as number | null,
+        }));
+      };
+
+      const backendListings: LiveListing[] = [];
       try {
-        const res = await fetch(`${BACKEND_URL}/api/listings?farmerId=${encodeURIComponent(address)}`, { signal: ctrl.signal });
+        const res = await fetch(
+          `${BACKEND_URL}/api/listings?farmerId=${encodeURIComponent(address)}`,
+          { signal: ctrl.signal },
+        );
         const data = await res.json();
-        if (!ctrl.signal.aborted && data.ok && Array.isArray(data.listings)) {
-          const mapped: LiveListing[] = data.listings.map((l: Record<string, unknown>) => ({
-            nftId: (l.nftId ?? l.nft_id) as number,
-            cropType: (l.cropType ?? l.crop_type ?? null) as string | null,
-            quantityKg: (l.quantityKg ?? l.quantity_kg ?? null) as number | null,
-            priceUsdc: l.priceUsdc != null ? String(l.priceUsdc) : (l.price_usdc != null ? String(l.price_usdc) : null),
-            farmer: (l.farmerId ?? l.farmer_id ?? address) as string,
-            harvestDate: null, cropStatus: null,
-            buyable: Boolean(l.buyable),
-            observedAt: null,
-            ndviBps: (l.ndviBps ?? l.ndvi_bps ?? null) as number | null,
-            minNdviBps: (l.minNdviBps ?? l.min_ndvi_bps ?? null) as number | null,
-            source: null,
-            parcelName: (l.parcelName ?? l.parcel_name ?? null) as string | null,
-            parcelBboxHash: null,
-            parcelAreaHectares: (l.areaHa ?? l.area_ha ?? null) as number | null,
-            region: (l.region ?? null) as string | null,
-            observationWindowDays: null,
-            totalYieldKg: (l.totalYieldKg ?? l.total_yield_kg ?? null) as number | null,
-          }));
-          setListings(mapped);
-          return;
+        if (data.ok && Array.isArray(data.listings)) {
+          const mapped = mapBackendListings(data.listings);
+          backendListings.push(...mapped);
         }
       } catch {}
 
+      const onChainListings: LiveListing[] = [];
       try {
         const { getLiveListings } = await import("@/lib/stellar/live-data");
         const all = await getLiveListings();
-        if (!ctrl.signal.aborted) setListings(all.filter((l) => l.farmer === address));
-      } catch (e) {
-        if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : "Failed to load listings");
-      } finally {
-        if (!ctrl.signal.aborted) setLoading(false);
+        const filtered = all.filter((l) => l.farmer === address);
+        // Deduplicate: prefer backend data, add on-chain rows for IDs not already present
+        const existingIds = new Set(backendListings.map((l) => l.nftId));
+        for (const l of filtered) {
+          if (!existingIds.has(l.nftId)) {
+            onChainListings.push(l);
+          }
+        }
+      } catch {}
+
+      if (!ctrl.signal.aborted) {
+        setListings([...backendListings, ...onChainListings]);
+        setLoading(false);
       }
     }
 

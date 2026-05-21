@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import NavigationBar from "@/components/NavigationBar";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
-import { MapPin, Leaf, ChevronDown, ChevronUp, Sprout, ShoppingBag, Clock, Shield } from "lucide-react";
+import { MapPin, Leaf, ChevronDown, ChevronUp, Sprout, Clock, Shield } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
@@ -196,14 +196,6 @@ export default function OrderPage() {
                             <a href="/explore" className="font-medium text-farm-700 hover:underline">
                               View on Map
                             </a>
-                            {!l.buyable && (
-                              <button
-                                onClick={() => setCheckoutListing(l)}
-                                className="font-medium text-farm-700 hover:underline flex items-center gap-1"
-                              >
-                                <ShoppingBag size={11} /> Complete Purchase
-                              </button>
-                            )}
                           </div>
                         </div>
                       )}
@@ -212,8 +204,7 @@ export default function OrderPage() {
                 })
               )}
             </div>
-          </>
-        )}
+      </main>
     </div>
   );
 }
