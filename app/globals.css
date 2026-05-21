@@ -27,6 +27,18 @@
   --color-soil-500: #a47148;
   --color-soil-600: #8b5e3c;
   --color-soil-700: #6b4423;
+  --animate-in: slide-in 200ms ease-out;
+  --animate-fade-in: fade-in 300ms ease-out;
+}
+
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 html { scroll-behavior: smooth; }
@@ -36,36 +48,63 @@ body {
   color: var(--color-foreground);
   font-family: var(--font-sans), sans-serif;
   background-image:
-    radial-gradient(circle at top left, rgba(190,242,100,0.18), transparent 24rem),
-    radial-gradient(circle at bottom right, rgba(22,163,74,0.08), transparent 28rem),
+    radial-gradient(circle at top left, rgba(190,242,100,0.12), transparent 28rem),
+    radial-gradient(circle at bottom right, rgba(22,163,74,0.05), transparent 32rem),
     linear-gradient(180deg, #f7f8f2 0%, #f4f5f1 100%);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection { background: #14532d; color: #f7fee7; }
 
-h1, h2, h3, h4 { font-family: var(--font-display), serif; }
+h1, h2, h3, h4 { font-family: var(--font-display), serif; font-weight: 700; }
 
+/* ---- Cards ---- */
 .card-farm {
-  @apply rounded-2xl border border-farm-200/60 bg-white shadow-sm;
+  @apply rounded-2xl border border-farm-200/40 bg-white shadow-sm;
 }
 
 .card-hover {
-  @apply transition hover:border-farm-300 hover:shadow-md;
+  @apply transition duration-200 hover:border-farm-300/60 hover:shadow-md hover:-translate-y-0.5;
 }
 
+/* ---- Buttons ---- */
 .btn-primary {
-  @apply inline-flex items-center gap-2 rounded-xl bg-farm-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-farm-800 active:scale-[0.97];
+  @apply inline-flex items-center gap-2 rounded-xl bg-farm-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-farm-900/10 transition-all hover:bg-farm-800 hover:shadow-md hover:shadow-farm-900/15 active:scale-[0.97];
 }
 
 .btn-outline {
-  @apply inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 shadow-sm transition hover:border-farm-400 hover:text-farm-800 active:scale-[0.97];
+  @apply inline-flex items-center gap-2 rounded-xl border border-stone-300 bg-white px-5 py-2.5 text-sm font-semibold text-stone-700 shadow-sm transition-all hover:border-farm-400 hover:text-farm-800 active:scale-[0.97];
 }
 
+/* ---- Badges ---- */
 .badge-buyable { @apply inline-flex items-center gap-1 rounded-full bg-farm-100 px-2.5 py-0.5 text-xs font-medium text-farm-700; }
 .badge-pending { @apply inline-flex items-center gap-1 rounded-full bg-harvest-100 px-2.5 py-0.5 text-xs font-medium text-harvest-700; }
 .badge-alert  { @apply inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-600; }
 
+/* ---- NFT Steps ---- */
 .nft-step { @apply flex items-center gap-3 rounded-xl border px-4 py-3 transition; }
 .nft-step-active { @apply border-farm-400 bg-farm-50 text-farm-800 shadow-sm; }
 .nft-step-done { @apply border-farm-200 bg-white text-farm-700; }
 .nft-step-idle { @apply border-stone-200 bg-white text-stone-400; }
+
+/* ---- Skeleton loading ---- */
+.skeleton {
+  @apply animate-pulse rounded-lg bg-stone-200;
+}
+
+/* ---- Scrollbar ---- */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+/* ---- Transitions ---- */
+.animate-in { animation: slide-in 200ms ease-out; }
+.animate-fade-in { animation: fade-in 300ms ease-out; }
+.slide-in-from-top-2 { animation: slide-in-from-top-2 200ms ease-out; }
+
+@keyframes slide-in-from-top-2 {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

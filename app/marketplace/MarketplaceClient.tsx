@@ -2,87 +2,145 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { MapPin, Plus, Leaf, DollarSign, Scale, CheckCircle, XCircle, ChevronRight, Search } from "lucide-react";
+import {
+  MapPin,
+  Plus,
+  Leaf,
+  DollarSign,
+  Scale,
+  CheckCircle,
+  XCircle,
+  Search,
+  Sprout,
+  Shield,
+  TrendingUp,
+  Users,
+  ShoppingBag,
+  ArrowRight,
+} from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import Filter, { type FilterState } from "@/components/Filter";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
+function NvdiRing({ value, size = 48 }: { value: number; size?: number }) {
+  const pct = Math.min(value / 100, 100);
+  const stroke = size / 8;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+
+  const color =
+    pct > 70 ? "#16a34a" : pct > 40 ? "#f59e0b" : "#dc2626";
+
+  return (
+    <div className="relative flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke="#e8e8e0"
+          strokeWidth={stroke}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          stroke={color}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+          className="transition-[stroke-dashoffset] duration-700 ease-out"
+        />
+      </svg>
+      <span className="absolute text-[11px] font-bold tabular-nums" style={{ color }}>
+        {pct.toFixed(0)}%
+      </span>
+    </div>
+  );
+}
+
 function ListingCard({ listing }: { listing: LiveListing }) {
   const label = listing.parcelName ?? listing.cropType ?? `Parcel #${listing.nftId}`;
-  const ndviLabel = listing.ndviBps !== null ? `${(listing.ndviBps / 100).toFixed(0)}%` : null;
-  const ndviPct = listing.ndviBps !== null ? listing.ndviBps / 100 : 0;
+  const ndviBps = listing.ndviBps ?? 0;
+  const ndviPct = ndviBps / 100;
 
   return (
     <Link
       href={`/order?nftId=${listing.nftId}`}
       className="group card-farm card-hover flex flex-col p-5"
     >
-      {/* NDVI gauge bar */}
-      {ndviLabel && (
-        <div className="-mx-5 -mt-5 mb-3 h-1.5 w-[calc(100%+2.5rem)] overflow-hidden rounded-t-2xl bg-stone-100">
-          <div
-            className="h-full rounded-t-2xl bg-farm-500 transition-all"
-            style={{ width: `${Math.min(ndviPct, 100)}%` }}
-          />
-        </div>
-      )}
+      {/* Top row: NDVI ring + title */}
+      <div className="flex items-start gap-4">
+        <NvdiRing value={ndviPct} size={48} />
 
-      <div className="mb-3 flex items-start justify-between">
-        <div>
-          <p className="text-base font-semibold text-stone-900">{label}</p>
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-stone-400">
-            <MapPin size={11} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-bold text-stone-800 leading-snug line-clamp-2">{label}</p>
+            <span className={listing.buyable ? "badge-buyable shrink-0" : "badge-pending shrink-0"}>
+              {listing.buyable ? (
+                <><CheckCircle size={10} /> Ready</>
+              ) : (
+                <><XCircle size={10} /> Pending</>
+              )}
+            </span>
+          </div>
+
+          <p className="mt-1 flex items-center gap-1 text-[11px] text-stone-400">
+            <MapPin size={10} />
             {listing.region ?? "Unknown"}
+            {listing.parcelAreaHectares !== null && (
+              <> &middot; {listing.parcelAreaHectares.toFixed(1)} ha</>
+            )}
           </p>
         </div>
-        <span className={listing.buyable ? "badge-buyable" : "badge-pending"}>
-          {listing.buyable ? (
-            <><CheckCircle size={12} /> Buyable</>
-          ) : (
-            <><XCircle size={12} /> Pending</>
-          )}
-        </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+      {/* Info grid */}
+      <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
         {listing.cropType && (
-          <div className="flex items-center gap-1.5 text-stone-600">
-            <Leaf size={14} className="text-farm-700" />
-            <span className="capitalize">{listing.cropType}</span>
+          <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
+            <Leaf size={13} className="text-farm-600 shrink-0" />
+            <span className="capitalize truncate">{listing.cropType}</span>
           </div>
         )}
         {listing.priceUsdc && (
-          <div className="flex items-center gap-1.5 text-stone-600">
-            <DollarSign size={14} className="text-farm-700" />
-            <span className="font-semibold">{listing.priceUsdc} USDC</span>
+          <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
+            <DollarSign size={13} className="text-farm-600 shrink-0" />
+            <span className="font-semibold tabular-nums">{listing.priceUsdc} USDC</span>
           </div>
         )}
         {listing.quantityKg !== null && (
-          <div className="flex items-center gap-1.5 text-stone-600">
-            <Scale size={14} className="text-farm-700" />
-            <span>{listing.quantityKg.toLocaleString()} kg</span>
+          <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
+            <Scale size={13} className="text-farm-600 shrink-0" />
+            <span className="tabular-nums">{listing.quantityKg.toLocaleString()} kg</span>
           </div>
         )}
-        {ndviLabel && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-stone-400">NDVI</span>
-            <span className="font-semibold text-farm-700">{ndviLabel}</span>
+        {listing.minNdviBps !== null && (
+          <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
+            <TrendingUp size={13} className="text-farm-600 shrink-0" />
+            <span className="tabular-nums">min {(listing.minNdviBps / 100).toFixed(0)}%</span>
           </div>
         )}
       </div>
 
-      {listing.parcelAreaHectares !== null && (
-        <div className="mt-3 border-t border-stone-100 pt-3 text-xs text-stone-400">
-          {listing.parcelAreaHectares.toFixed(2)} ha
-          {listing.minNdviBps !== null && (
-            <> &middot; min NDVI {(listing.minNdviBps / 100).toFixed(0)}%</>
-          )}
+      {/* Trust info */}
+      {listing.farmer && (
+        <div className="mt-3 flex items-center gap-1.5 border-t border-stone-100 pt-3 text-[10px] text-stone-400">
+          <Shield size={11} className="text-farm-500" />
+          <span className="truncate font-mono text-[10px]">{listing.farmer.slice(0, 4)}...{listing.farmer.slice(-4)}</span>
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-end gap-1 text-xs font-medium text-farm-700 opacity-0 transition group-hover:opacity-100">
-        View Details <ChevronRight size={14} />
+      {/* Hover CTA */}
+      <div className="mt-2 flex items-center justify-between opacity-0 transition group-hover:opacity-100">
+        <span className="text-[11px] font-medium text-farm-700">
+          View Details <ArrowRight size={11} className="inline ml-0.5" />
+        </span>
       </div>
     </Link>
   );
@@ -111,6 +169,15 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
     });
   }, [listings, searchQuery, filters]);
 
+  const buyable = listings.filter((l) => l.buyable);
+  const avgNdvi = listings.length > 0
+    ? listings.reduce((s, l) => s + (l.ndviBps ?? 0), 0) / listings.length / 100
+    : 0;
+  const totalVolume = listings
+    .filter((l) => l.priceUsdc !== null)
+    .reduce((s, l) => s + parseFloat(l.priceUsdc ?? "0"), 0);
+  const regions = [...new Set(listings.map((l) => l.region).filter(Boolean))];
+
   return (
     <>
       {/* Header */}
@@ -120,12 +187,32 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
             Marketplace
           </h1>
           <p className="mt-1 text-sm text-stone-500">
-            Browse verified crop parcels ready for purchase
+            Satellite-verified crop parcels ready for purchase
           </p>
         </div>
         <Link href="/explore" className="btn-primary">
           <Plus size={18} /> List Your Crop
         </Link>
+      </div>
+
+      {/* Stats bar */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { icon: Sprout, label: "Active Listings", value: listings.length, color: "bg-farm-50 text-farm-700" },
+          { icon: TrendingUp, label: "Avg NDVI", value: `${avgNdvi.toFixed(0)}%`, color: "bg-farm-50 text-farm-700" },
+          { icon: DollarSign, label: "Total Volume", value: `${totalVolume.toFixed(0)} USDC`, color: "bg-harvest-50 text-harvest-700" },
+          { icon: Users, label: "Regions Covered", value: regions.length, color: "bg-soil-50 text-soil-700" },
+        ].map(({ icon: Icon, label, value, color }) => (
+          <div key={label} className="card-farm flex items-center gap-3 px-4 py-3">
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${color}`}>
+              <Icon size={16} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-lg font-bold tabular-nums text-stone-900 leading-none">{value}</p>
+              <p className="mt-0.5 text-[10px] text-stone-400 uppercase">{label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Search + Filters */}
@@ -138,7 +225,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
         <Filter activeFilters={filters} onFilterChange={setFilters} variant="compact" />
       </div>
 
-      {/* Lifecycle flow — shows the whole journey */}
+      {/* Lifecycle flow */}
       <div className="mb-6 overflow-x-auto rounded-2xl border border-farm-100/60 bg-farm-50/30 p-4">
         <p className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-500">
           Crop NFT Lifecycle
@@ -148,19 +235,27 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
 
       {/* Results */}
       {filtered.length === 0 ? (
-        <div className="card-farm flex flex-col items-center justify-center py-16">
-          <Search size={36} className="mb-3 text-stone-300" />
-          <p className="text-sm font-medium text-stone-400">
+        <div className="card-farm flex flex-col items-center justify-center py-20">
+          <Search size={40} className="mb-3 text-stone-200" />
+          <p className="text-sm font-semibold text-stone-400">
             {listings.length === 0 ? "No listings yet" : "No results match your search"}
           </p>
           <p className="mt-1 text-xs text-stone-300">
-            {listings.length === 0 ? "List your first crop to appear here" : "Try a different search term"}
+            {listings.length === 0
+              ? "Be the first to list a crop parcel"
+              : "Try a different search term or adjust your filters"}
           </p>
+          {listings.length === 0 && (
+            <Link href="/explore" className="btn-primary mt-4">
+              <Plus size={16} /> List Your First Crop
+            </Link>
+          )}
         </div>
       ) : (
         <>
           <p className="mb-3 text-xs text-stone-400">
             {filtered.length} parcel{filtered.length === 1 ? "" : "s"} found
+            {searchQuery && <> for &quot;{searchQuery}&quot;</>}
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((listing) => (

@@ -5,6 +5,8 @@ import { PiggyBank, ArrowDownRight, Users } from "lucide-react";
 
 export default function LiquidityPool() {
   const [poolBalance, setPoolBalance] = useState<number | null>(null);
+  const [distributed, setDistributed] = useState<number | null>(null);
+  const [aidedCount, setAidedCount] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchPool() {
@@ -18,18 +20,24 @@ export default function LiquidityPool() {
         if (data.ok && typeof data.balance === "number") {
           setPoolBalance(data.balance / 10_000_000);
         }
+        if (data.ok && typeof data.totalDistributed === "number") {
+          setDistributed(data.totalDistributed / 10_000_000);
+        }
+        if (data.ok && typeof data.aidedCount === "number") {
+          setAidedCount(data.aidedCount);
+        }
       } catch {}
     }
     fetchPool();
   }, []);
 
   const balance = poolBalance ?? 0;
-  const totalDistributed = 47500;
-  const farmersAided = 12;
+  const totalDistributed = distributed ?? 0;
+  const farmersAided = aidedCount ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="card-farm p-5">
+    <div className="space-y-5">
+      <div className="rounded-2xl border border-stone-100 bg-white p-5 shadow-sm">
         <div className="flex items-center gap-2.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-harvest-100 text-harvest-700">
             <PiggyBank size={20} />
@@ -42,15 +50,14 @@ export default function LiquidityPool() {
         <div className="mt-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">Pool Balance</p>
           <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-stone-900">
-            ${balance === 0 ? "0" : balance.toLocaleString()}
+            {balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
             <span className="ml-1 text-sm font-normal text-stone-500">USDC</span>
           </p>
         </div>
       </div>
 
-      {/* Payout split */}
-      <div className="card-farm p-5">
-        <h3 className="mb-3 text-sm font-bold text-stone-900">How It Works</h3>
+      <div className="rounded-2xl border border-stone-100 bg-white p-5 shadow-sm">
+        <h3 className="mb-3 text-sm font-bold text-stone-900">Payment Split</h3>
         {[
           { label: "Farmer Upfront", pct: 20, color: "bg-farm-500", desc: "Paid immediately on purchase" },
           { label: "Escrow Hold", pct: 70, color: "bg-harvest-500", desc: "Released after delivery verified" },
@@ -71,15 +78,16 @@ export default function LiquidityPool() {
         ))}
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="card-farm p-4">
+        <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-1.5 text-farm-700">
             <ArrowDownRight size={14} /> <span className="text-xs font-medium">Total Distributed</span>
           </div>
-          <p className="mt-1 text-lg font-bold tabular-nums text-stone-900">${totalDistributed.toLocaleString()}</p>
+          <p className="mt-1 text-lg font-bold tabular-nums text-stone-900">
+            {totalDistributed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USDC
+          </p>
         </div>
-        <div className="card-farm p-4">
+        <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-1.5 text-soil-600">
             <Users size={14} /> <span className="text-xs font-medium">Farmers Aided</span>
           </div>

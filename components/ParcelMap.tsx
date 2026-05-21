@@ -23,67 +23,42 @@ type Props = {
 type GoogleWindow = Window & {
   google?: {
     maps: {
-      Map: new (el: HTMLElement, cfg: Record<string, unknown>) => Record<string, unknown>;
-      LatLng: new (lat: number, lng: number) => { lat: () => number; lng: () => number };
+      Map: new (el: HTMLElement, cfg: Record<string, unknown>) => {
+        panTo?: (p: unknown) => void;
+        setZoom?: (z: number) => void;
+        getCenter?: () => { lat: () => number; lng: () => number };
+        fitBounds?: (b: unknown) => void;
+      };
+      LatLng: new (lat: number, lng: number) => unknown;
+      LatLngBounds: new (sw: unknown, ne: unknown) => unknown;
       drawing: {
-        DrawingManager: new (cfg: {
-          map: unknown;
-          drawingMode?: unknown;
-          drawingControl?: boolean;
-          drawingControlOptions?: Record<string, unknown>;
-          polygonOptions?: Record<string, unknown>;
-        }) => {
-          setMap: (map: unknown) => void;
+        DrawingManager: new (cfg: Record<string, unknown>) => {
+          setMap: (m: unknown) => void;
           setDrawingMode: (mode: unknown) => void;
           setOptions: (opts: Record<string, unknown>) => void;
-          addListener: (event: string, cb: (...args: unknown[]) => void) => void;
+          addListener: (event: string, cb: (poly: unknown) => void) => google.maps.MapsEventListener;
           getDrawingManagerInstance?: () => unknown;
         };
       };
-      OverlayType: { POLYGON: unknown };
+      OverlayType: { POLYGON: string };
       marker?: {
-        AdvancedMarkerElement: new (cfg: {
-          map: unknown;
-          position: { lat: number; lng: number };
+        AdvancedMarkerElement: new (cfg: Record<string, unknown>) => {
+          addListener: (e: string, h: () => void) => void;
+          setMap: (m: unknown) => void;
+          position?: unknown;
           title?: string;
-          gmpClickable?: boolean;
-        }) => { addListener: (e: string, h: () => void) => void; setMap: (m: unknown) => void };
-      };
-      Rectangle: new (cfg: {
-        map: unknown;
-        bounds: { north: number; south: number; east: number; west: number };
-        editable?: boolean;
-        draggable?: boolean;
-        strokeColor?: string;
-        strokeOpacity?: number;
-        strokeWeight?: number;
-        fillColor?: string;
-        fillOpacity?: number;
-      }) => {
-        setBounds?: (b: { north: number; south: number; east: number; west: number }) => void;
-        setMap?: (m: unknown) => void;
-        getBounds?: () => {
-          getNorthEast: () => { lat: () => number; lng: () => number };
-          getSouthWest: () => { lat: () => number; lng: () => number };
         };
+      };
+      MapsEventListener: unknown;
+      Rectangle: new (cfg: Record<string, unknown>) => {
+        setBounds: (b: unknown) => void;
+        setMap: (m: unknown) => void;
+        getBounds: () => { getNorthEast: () => { lat: () => number; lng: () => number }; getSouthWest: () => { lat: () => number; lng: () => number } };
         addListener: (e: string, h: () => void) => void;
       };
-      Polygon: new (cfg: {
-        map: unknown;
-        paths: { lat: number; lng: number }[];
-        strokeColor?: string;
-        strokeOpacity?: number;
-        strokeWeight?: number;
-        fillColor?: string;
-        fillOpacity?: number;
-        editable?: boolean;
-        draggable?: boolean;
-      }) => {
+      Polygon: new (cfg: Record<string, unknown>) => {
         setMap: (m: unknown) => void;
-        getPath: () => {
-          getArray: () => { lat: () => number; lng: () => number }[];
-          getLength: () => number;
-        };
+        getPath: () => { getArray: () => { lat: () => number; lng: () => number }[]; getLength: () => number };
         addListener: (e: string, h: () => void) => void;
         setOptions: (o: Record<string, unknown>) => void;
       };
@@ -95,10 +70,10 @@ type GoogleWindow = Window & {
 const SCRIPT_ID = "agri-con-google-maps";
 let loader: Promise<void> | null = null;
 
-function loadApi(key: string) {
-  if (typeof window === "undefined") return Promise.reject();
+function loadApi(key: string): Promise<void> {
+  if (typeof window === "undefined") return Promise.reject(new Error("SSR"));
   const w = window as unknown as GoogleWindow;
-  if (w.google?.maps?.drawing) return Promise.resolve();
+  if (w.google?.maps?.Map && w.google?.maps?.drawing) return Promise.resolve();
   if (loader) return loader;
 
   loader = new Promise<void>((resolve, reject) => {
@@ -108,7 +83,7 @@ function loadApi(key: string) {
     s.id = SCRIPT_ID;
     s.async = true;
     s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&loading=async&libraries=marker,drawing&v=weekly&callback=${cb}`;
-    s.onerror = () => { loader = null; reject(); };
+    s.onerror = () => { loader = null; reject(new Error("Maps load failed")); };
     document.head.appendChild(s);
   });
   return loader;
@@ -116,12 +91,8 @@ function loadApi(key: string) {
 
 function extractPolygonCoords(polygon: unknown): { lat: number; lng: number }[] {
   try {
-    const p = polygon as {
-      getPath: () => { getArray: () => { lat: () => number; lng: () => number }[] };
-    };
-    const path = p.getPath();
-    const arr = path.getArray();
-    return arr.map((ll) => ({ lat: ll.lat(), lng: ll.lng() }));
+    const p = polygon as { getPath: () => { getArray: () => { lat: () => number; lng: () => number }[] } };
+    return p.getPath().getArray().map((ll) => ({ lat: ll.lat(), lng: ll.lng() }));
   } catch {
     return [];
   }
@@ -138,23 +109,48 @@ export default function ParcelMap({
   polygonCenter,
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<unknown>(null);
-  const rectRef = useRef<unknown>(null);
-  const drawingRef = useRef<unknown>(null);
-  const polygonRef = useRef<unknown>(null);
-  const centerMarkerRef = useRef<unknown>(null);
+  const mapRef = useRef<Record<string, unknown> | null>(null);
+  const markersRef = useRef<unknown[]>([]);
+  const rectRef = useRef<{ setBounds: (b: unknown) => void; setMap: (m: unknown) => void; addListener: (e: string, h: () => void) => void } | null>(null);
+  const drawingRef = useRef<{ setMap: (m: unknown) => void; setDrawingMode: (m: unknown) => void; addListener: (e: string, cb: (poly: unknown) => void) => void } | null>(null);
+  const polygonRef = useRef<{ setMap: (m: unknown) => void } | null>(null);
+  const centerMarkerRef = useRef<{ setMap: (m: unknown) => void } | null>(null);
   const [drawing, setDrawing] = useState(false);
 
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || "DEMO_MAP_ID";
 
-  // Init map
+  type GMap = {
+    Map: new (el: HTMLElement, cfg: Record<string, unknown>) => Record<string, unknown>;
+    LatLng: new (lat: number, lng: number) => unknown;
+    LatLngBounds: new (sw: unknown, ne: unknown) => unknown;
+    marker?: { AdvancedMarkerElement: new (cfg: Record<string, unknown>) => Record<string, unknown> };
+    Polygon: new (cfg: Record<string, unknown>) => Record<string, unknown>;
+    Rectangle: new (cfg: Record<string, unknown>) => {
+      setBounds: (b: unknown) => void;
+      setMap: (m: unknown) => void;
+      getBounds: () => { getNorthEast: () => { lat: () => number; lng: () => number }; getSouthWest: () => { lat: () => number; lng: () => number } };
+      addListener: (e: string, h: () => void) => void;
+    };
+    drawing: {
+      DrawingManager: new (cfg: Record<string, unknown>) => {
+        setMap: (m: unknown) => void;
+        setDrawingMode: (m: unknown) => void;
+        addListener: (e: string, cb: (poly: unknown) => void) => void;
+      };
+      OverlayType: { POLYGON: string };
+    };
+  };
+
+  // Init map — only once
   useEffect(() => {
     if (!ref.current || !key || mapRef.current) return;
+    let cancelled = false;
+
     loadApi(key).then(() => {
+      if (cancelled || !ref.current) return;
       const w = window as unknown as GoogleWindow;
-      const gmap = w.google?.maps;
-      if (!gmap || !ref.current) return;
+      const gmap = w.google?.maps as GMap | undefined;
+      if (!gmap) return;
 
       const center = markers.length > 0
         ? { lat: markers[0].lat, lng: markers[0].lng }
@@ -163,37 +159,72 @@ export default function ParcelMap({
       const map = new gmap.Map(ref.current, {
         center,
         zoom: 12,
-        mapId,
         mapTypeControl: false,
         fullscreenControl: false,
         streetViewControl: false,
       });
       mapRef.current = map;
-
-      const Adv = gmap.marker?.AdvancedMarkerElement;
-      if (Adv) {
-        markers.forEach((m) => {
-          const am = new Adv({ map, position: { lat: m.lat, lng: m.lng }, title: m.title, gmpClickable: true });
-          am.addListener("gmp-click", () => onSelectMarker(m.id));
-        });
-      }
     }).catch(() => {});
-  }, [key, mapId, markers, onSelectMarker]);
 
-  // Handle active marker — show rectangle
+    return () => { cancelled = true; };
+    // Only run on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  // Update markers whenever markers/onSelectMarker changes
   useEffect(() => {
-    const gmap = (window as unknown as GoogleWindow).google?.maps;
-    const active = markers.find((m) => m.id === activeMarkerId);
-    if (!active || !mapRef.current || !gmap) return;
+    const w = window as unknown as GoogleWindow;
+    const gmap = w.google?.maps as GMap | undefined;
+    if (!gmap?.marker?.AdvancedMarkerElement || !mapRef.current) return;
 
-    (mapRef.current as { panTo: unknown; setZoom: unknown }).panTo?.({ lat: active.lat, lng: active.lng });
-    (mapRef.current as { setZoom: unknown }).setZoom?.(13);
+    // Clear old markers
+    markersRef.current.forEach((m) => {
+      try { (m as { setMap: (m: null) => void }).setMap(null); } catch {}
+    });
+    markersRef.current = [];
+
+    const Adv = gmap.marker.AdvancedMarkerElement;
+    markers.forEach((m) => {
+      const am = new Adv({
+        map: mapRef.current,
+        position: { lat: m.lat, lng: m.lng },
+        title: m.title,
+        gmpClickable: true,
+      });
+      try {
+        (am as { addListener: (e: string, h: () => void) => void }).addListener("gmp-click", () => onSelectMarker(m.id));
+      } catch {}
+      markersRef.current.push(am);
+    });
+  }, [markers, onSelectMarker]);
+
+  // Handle activeMarkerId — show rectangle
+  useEffect(() => {
+    const w = window as unknown as GoogleWindow;
+    const gmap = w.google?.maps as GMap | undefined;
+    if (!gmap || !mapRef.current) return;
+
+    // If no active marker, remove rectangle
+    if (activeMarkerId == null) {
+      if (rectRef.current) {
+        rectRef.current.setMap(null);
+        rectRef.current = null;
+      }
+      return;
+    }
+
+    const active = markers.find((m) => m.id === activeMarkerId);
+    if (!active) return;
+
+    (mapRef.current as { panTo?: (p: unknown) => void }).panTo?.({ lat: active.lat, lng: active.lng });
+    (mapRef.current as { setZoom?: (z: number) => void }).setZoom?.(13);
 
     if (rectRef.current) {
-      (rectRef.current as { setBounds?: (b: Record<string, number>) => void }).setBounds?.({
-        north: active.lat + 0.05, south: active.lat - 0.05,
-        east: active.lng + 0.05, west: active.lng - 0.05,
-      });
+      const bounds = new gmap.LatLngBounds(
+        new gmap.LatLng(active.lat - 0.05, active.lng - 0.05),
+        new gmap.LatLng(active.lat + 0.05, active.lng + 0.05),
+      );
+      rectRef.current.setBounds(bounds);
     } else {
       const rect = new gmap.Rectangle({
         map: mapRef.current,
@@ -207,13 +238,17 @@ export default function ParcelMap({
         fillOpacity: 0.1,
       });
       rect.addListener("bounds_changed", () => {
-        const b = rect.getBounds?.();
-        if (b) onBoundsChange({
-          north: b.getNorthEast().lat(),
-          south: b.getSouthWest().lat(),
-          east: b.getNorthEast().lng(),
-          west: b.getSouthWest().lng(),
-        });
+        try {
+          const b = rect.getBounds();
+          if (b) {
+            onBoundsChange({
+              north: b.getNorthEast().lat(),
+              south: b.getSouthWest().lat(),
+              east: b.getNorthEast().lng(),
+              west: b.getSouthWest().lng(),
+            });
+          }
+        } catch {}
       });
       rectRef.current = rect;
     }
@@ -222,27 +257,17 @@ export default function ParcelMap({
   // Polygon drawing mode
   useEffect(() => {
     const w = window as unknown as GoogleWindow;
-    const gmap = w.google?.maps;
+    const gmap = w.google?.maps as GMap | undefined;
     if (!gmap || !mapRef.current) return;
 
-    const dm = drawingRef.current as {
-      setDrawingMode?: (m: unknown) => void;
-      setMap?: (m: unknown) => void;
-    } | null;
-
     if (drawMode === "polygon" && gmap.drawing) {
-      // Remove old polygon and marker
-      if (polygonRef.current) {
-        (polygonRef.current as { setMap: (m: null) => void }).setMap(null);
-        polygonRef.current = null;
-      }
-      if (centerMarkerRef.current) {
-        (centerMarkerRef.current as { setMap: (m: null) => void }).setMap(null);
-        centerMarkerRef.current = null;
-      }
+      // Remove old polygon overlay and center marker before drawing new one
+      if (polygonRef.current) { polygonRef.current.setMap(null); polygonRef.current = null; }
+      if (centerMarkerRef.current) { centerMarkerRef.current.setMap(null); centerMarkerRef.current = null; }
 
-      if (!dm) {
-        const mgr = new gmap.drawing.DrawingManager({
+      // Only create DrawingManager once
+      if (!drawingRef.current) {
+        const dm = new gmap.drawing.DrawingManager({
           map: mapRef.current,
           drawingMode: gmap.drawing.OverlayType.POLYGON,
           drawingControl: false,
@@ -253,55 +278,47 @@ export default function ParcelMap({
             fillColor: "#10b981",
             fillOpacity: 0.15,
             editable: true,
-            draggable: true,
           },
         });
-        mgr.addListener("polygoncomplete", (poly: unknown) => {
-          polygonRef.current = poly;
+        dm.addListener("polygoncomplete", (poly: unknown) => {
+          polygonRef.current = poly as { setMap: (m: unknown) => void };
           const coords = extractPolygonCoords(poly);
           if (coords.length >= 3) {
             onPolygonComplete?.(coords);
           }
-          // Switch drawing mode off so further clicks don't start new polygons
-          mgr.setDrawingMode?.(null);
+          dm.setDrawingMode(null);
           setDrawing(false);
         });
-        drawingRef.current = mgr;
-        setDrawing(true);
+        drawingRef.current = dm;
+      } else {
+        drawingRef.current.setMap(mapRef.current);
       }
-    } else if (drawMode === "none") {
-      if (dm) {
-        dm.setDrawingMode?.(null);
-        setDrawing(false);
-      }
+      drawingRef.current.setDrawingMode(gmap.drawing.OverlayType.POLYGON);
+      setDrawing(true);
     } else {
-      if (dm) {
-        dm.setDrawingMode?.(null);
+      if (drawingRef.current) {
+        drawingRef.current.setDrawingMode(null);
         setDrawing(false);
       }
     }
 
     return () => {
-      if (dm) dm.setDrawingMode?.(null);
+      if (drawingRef.current) {
+        drawingRef.current.setDrawingMode(null);
+      }
     };
-  }, [drawMode, onPolygonComplete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawMode]);
 
-  // Display saved polygon overlay + center marker when polygonCoords changes
+  // Display saved polygon overlay + center marker
   useEffect(() => {
     const w = window as unknown as GoogleWindow;
-    const gmap = w.google?.maps;
+    const gmap = w.google?.maps as GMap | undefined;
     if (!gmap || !mapRef.current) return;
 
-    // Clear old polygon
-    if (polygonRef.current) {
-      (polygonRef.current as { setMap: (m: null) => void }).setMap(null);
-      polygonRef.current = null;
-    }
-    // Clear old center marker
-    if (centerMarkerRef.current) {
-      (centerMarkerRef.current as { setMap: (m: null) => void }).setMap(null);
-      centerMarkerRef.current = null;
-    }
+    // Clear old
+    if (polygonRef.current) { polygonRef.current.setMap(null); polygonRef.current = null; }
+    if (centerMarkerRef.current) { centerMarkerRef.current.setMap(null); centerMarkerRef.current = null; }
 
     if (polygonCoords.length >= 3 && gmap.Polygon) {
       const poly = new gmap.Polygon({
@@ -315,18 +332,17 @@ export default function ParcelMap({
         editable: false,
         draggable: false,
       });
-      polygonRef.current = poly;
+      polygonRef.current = poly as { setMap: (m: unknown) => void };
     }
 
     if (polygonCenter && gmap.marker?.AdvancedMarkerElement) {
-      const Adv = gmap.marker.AdvancedMarkerElement;
-      const m = new Adv({
+      const m = new gmap.marker.AdvancedMarkerElement({
         map: mapRef.current,
         position: polygonCenter,
         title: "Area Center",
         gmpClickable: true,
       });
-      centerMarkerRef.current = m;
+      centerMarkerRef.current = m as { setMap: (m: unknown) => void };
     }
   }, [polygonCoords, polygonCenter]);
 

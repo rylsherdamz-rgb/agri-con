@@ -159,15 +159,17 @@ async function decodeNdviMeanFromGeoTiff(input: ArrayBuffer) {
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Body;
-    if (!body?.nftId || !body?.bbox) {
+    if (body?.nftId == null || !body?.bbox) {
       return Response.json({ ok: false, error: "Missing nftId/bbox" }, { status: 400 });
     }
-    if (!Number.isInteger(body.nftId) || body.nftId <= 0) {
-      return Response.json({ ok: false, error: "nftId must be a positive integer" }, { status: 400 });
+    if (!Number.isInteger(body.nftId) || body.nftId < 0) {
+      return Response.json({ ok: false, error: "nftId must be a non-negative integer" }, { status: 400 });
     }
     if (!isValidBBox(body.bbox)) {
       return Response.json({ ok: false, error: "bbox is invalid" }, { status: 400 });
     }
+
+    const isPreview = body.nftId === 0;
 
     const openeoSh = trimSlash(
       process.env.OPENEO_SH_BASE_URL ?? "https://openeosh.dataspace.copernicus.eu",
@@ -278,12 +280,13 @@ export async function POST(req: Request) {
     );
 
     // Prepare a contract call to record the attestation and update buyability.
+    // Skip on-chain attestation for preview mode (nftId === 0).
     const oracleAddress =
       process.env.ORACLE_ADDRESS ??
       process.env.NEXT_PUBLIC_ORACLE_ADDRESS ??
       null;
     let prepared: PreparedTx | null = null;
-    if (oracleAddress) {
+    if (!isPreview && oracleAddress) {
       try {
         prepared = (await prepareRecordSatelliteAttestationByOracle({
           oracle: oracleAddress,
@@ -323,6 +326,7 @@ export async function POST(req: Request) {
       minNdviBps,
       buyable,
       sampleGridSize,
+      isPreview,
       attestation: {
         observedAt,
         bboxHash,
