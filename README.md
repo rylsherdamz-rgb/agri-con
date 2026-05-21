@@ -1,13 +1,10 @@
 # Agri-Block
 
 ## 🧩 Problem
-
 Agricultural forward contracting is broken by information asymmetry. Buyers commit funds for crops they cannot verify exist or are healthy. Farmers wait weeks for payment after delivery with no recourse when buyers default. Manual NDVI reports cost hundreds of dollars per parcel, take days to produce, and can be forged. Paper contracts leave no audit trail. Smallholder farmers — who produce over 70% of the world's food — are shut out of formal commodity markets entirely.
-
 ## 🌟 Vision
 
 A world where every harvest is pre-sold with confidence. Where a farmer in a rural province can mint their crop as a verifiable NFT, prove its health with free satellite data, and receive upfront payment in seconds — not months. Where buyers anywhere on earth can browse verified crop listings, check real NDVI scores, and purchase knowing their funds are protected by code, not promises.
-
 ## 🎯 Purpose
 
 We built Agri-Block because the gap between what satellite data can prove and what agricultural markets currently trust is enormous. Copernicus Sentinel-2 images the entire planet every 5 days at 10m resolution — completely free. Stellar settles transactions in under 5 seconds for fractions of a cent with native USDC. Combined, these technologies can replace the entire trust-dependent apparatus of crop trading with verifiable, automated, and transparent infrastructure. That's what Agri-Block does.
@@ -62,6 +59,7 @@ Three Soroban smart contracts deployed and verified:
 | Crop NFT | `CCA2E4OOZOR2NLAL2XEWE3KDHTTPDEBWOUX3BMR5QLOITWHOKWKULULR` |
 | Escrow | `CDMKYC3VBHZJZMTEN6FQPFKG6LRYXIYOIP5KHEOPGSWCCYRSYXJSZFOQ` |
 | Verification | `CA3NIAKLHQN3SKNBUGSWLOZRWY4BNNSKWCPI2BJIHZGYZM4J3QLW4GSA` |
+| Mainnet | `CCIEMYEGIMMPFNV6LCQIG2S7OGEW3H7355PBCRVNUQ2VL43AHDZWUVUG` |
 
 USDC Token: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
 
@@ -70,7 +68,7 @@ USDC Token: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
 
 ### Mainnet
 
-Not yet deployed. Targeting mainnet after testnet validation and auditor review.
+![Testnet Screenshot](./screenshots/mainnet.png)
 
 ## 🎥 Demo
 
