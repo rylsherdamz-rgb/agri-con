@@ -109,7 +109,7 @@ export default function FloatingAIButton() {
             </div>
             <div>
               <p className="text-sm font-semibold text-emerald-900">AgriAI Assistant</p>
-              <p className="text-[10px] text-stone-500">Powered by Gemini</p>
+              <p className="text-[10px] text-stone-500">Powered by NVIDIA Llama 3.3</p>
             </div>
           </div>
 

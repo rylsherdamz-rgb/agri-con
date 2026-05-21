@@ -8,22 +8,28 @@ export default function Footer() {
           </p>
           <p className="mt-4 max-w-2xl text-sm leading-6 text-stone-300">
             A Soroban-based agricultural reservation model where crop NFTs,
-            USDC escrow, and validator proof create a market farmers and buyers
+            USDC escrow, and satellite verification create a market farmers and buyers
             can audit end to end.
           </p>
         </div>
         <div className="grid gap-3 text-sm text-stone-300 sm:grid-cols-2">
-          <a className="transition hover:text-lime-200" href="/dashboard">
-            Dashboard
-          </a>
           <a className="transition hover:text-lime-200" href="/marketplace">
             Marketplace
           </a>
           <a className="transition hover:text-lime-200" href="/explore">
-            Parcel Verification
+            Explore Parcels
+          </a>
+          <a className="transition hover:text-lime-200" href="/mylistings">
+            My Listings
           </a>
           <a className="transition hover:text-lime-200" href="/profile">
             Profile
+          </a>
+          <a className="transition hover:text-lime-200" href="/aid">
+            Disaster Aid
+          </a>
+          <a className="transition hover:text-lime-200" href="/dashboard">
+            Dashboard
           </a>
         </div>
       </div>

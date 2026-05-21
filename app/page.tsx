@@ -3,7 +3,7 @@ import NavigationBar from "@/components/NavigationBar";
 import HeroComponent from "@/components/HeroComponent";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
 import Link from "next/link";
-import { Sprout, ShieldCheck, ArrowRight, User, ShoppingBag } from "lucide-react";
+import { Sprout, ShieldCheck, ArrowRight, User, ShoppingBag, Map, Satellite } from "lucide-react";
 
 export default function Home() {
   return (
@@ -67,9 +67,14 @@ export default function Home() {
                   <span className="text-farm-600 font-bold">5.</span> Get 20% upfront, 70% on delivery
                 </li>
               </ul>
-              <Link href="/profile" className="btn-primary mt-6">
-                <User size={14} /> Register as Farmer <ArrowRight size={14} />
-              </Link>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <Link href="/profile" className="btn-primary">
+                  <User size={14} /> Register Profile <ArrowRight size={14} />
+                </Link>
+                <Link href="/explore" className="btn-outline">
+                  <Map size={14} /> Map a Parcel
+                </Link>
+              </div>
             </div>
 
             {/* Buyer card */}

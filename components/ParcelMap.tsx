@@ -16,12 +16,15 @@ type Props = {
   onBoundsChange: (bounds: { north: number; south: number; east: number; west: number }) => void;
   drawMode?: "rect" | "polygon" | "none";
   onPolygonComplete?: (coords: { lat: number; lng: number }[]) => void;
+  polygonCoords?: { lat: number; lng: number }[];
+  polygonCenter?: { lat: number; lng: number } | null;
 };
 
 type GoogleWindow = Window & {
   google?: {
     maps: {
       Map: new (el: HTMLElement, cfg: Record<string, unknown>) => Record<string, unknown>;
+      LatLng: new (lat: number, lng: number) => { lat: () => number; lng: () => number };
       drawing: {
         DrawingManager: new (cfg: {
           map: unknown;
@@ -33,7 +36,8 @@ type GoogleWindow = Window & {
           setMap: (map: unknown) => void;
           setDrawingMode: (mode: unknown) => void;
           setOptions: (opts: Record<string, unknown>) => void;
-          addListener: (event: string, cb: () => void) => void;
+          addListener: (event: string, cb: (...args: unknown[]) => void) => void;
+          getDrawingManagerInstance?: () => unknown;
         };
       };
       OverlayType: { POLYGON: unknown };
@@ -43,7 +47,7 @@ type GoogleWindow = Window & {
           position: { lat: number; lng: number };
           title?: string;
           gmpClickable?: boolean;
-        }) => { addListener: (e: string, h: () => void) => void };
+        }) => { addListener: (e: string, h: () => void) => void; setMap: (m: unknown) => void };
       };
       Rectangle: new (cfg: {
         map: unknown;
@@ -63,6 +67,25 @@ type GoogleWindow = Window & {
           getSouthWest: () => { lat: () => number; lng: () => number };
         };
         addListener: (e: string, h: () => void) => void;
+      };
+      Polygon: new (cfg: {
+        map: unknown;
+        paths: { lat: number; lng: number }[];
+        strokeColor?: string;
+        strokeOpacity?: number;
+        strokeWeight?: number;
+        fillColor?: string;
+        fillOpacity?: number;
+        editable?: boolean;
+        draggable?: boolean;
+      }) => {
+        setMap: (m: unknown) => void;
+        getPath: () => {
+          getArray: () => { lat: () => number; lng: () => number }[];
+          getLength: () => number;
+        };
+        addListener: (e: string, h: () => void) => void;
+        setOptions: (o: Record<string, unknown>) => void;
       };
     };
   };
@@ -91,6 +114,19 @@ function loadApi(key: string) {
   return loader;
 }
 
+function extractPolygonCoords(polygon: unknown): { lat: number; lng: number }[] {
+  try {
+    const p = polygon as {
+      getPath: () => { getArray: () => { lat: () => number; lng: () => number }[] };
+    };
+    const path = p.getPath();
+    const arr = path.getArray();
+    return arr.map((ll) => ({ lat: ll.lat(), lng: ll.lng() }));
+  } catch {
+    return [];
+  }
+}
+
 export default function ParcelMap({
   markers,
   activeMarkerId,
@@ -98,11 +134,15 @@ export default function ParcelMap({
   onBoundsChange,
   drawMode = "rect",
   onPolygonComplete,
+  polygonCoords = [],
+  polygonCenter,
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<unknown>(null);
   const rectRef = useRef<unknown>(null);
   const drawingRef = useRef<unknown>(null);
+  const polygonRef = useRef<unknown>(null);
+  const centerMarkerRef = useRef<unknown>(null);
   const [drawing, setDrawing] = useState(false);
 
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -185,9 +225,22 @@ export default function ParcelMap({
     const gmap = w.google?.maps;
     if (!gmap || !mapRef.current) return;
 
-    const dm = drawingRef.current as { setDrawingMode?: (m: unknown) => void; setMap?: (m: unknown) => void } | null;
+    const dm = drawingRef.current as {
+      setDrawingMode?: (m: unknown) => void;
+      setMap?: (m: unknown) => void;
+    } | null;
 
     if (drawMode === "polygon" && gmap.drawing) {
+      // Remove old polygon and marker
+      if (polygonRef.current) {
+        (polygonRef.current as { setMap: (m: null) => void }).setMap(null);
+        polygonRef.current = null;
+      }
+      if (centerMarkerRef.current) {
+        (centerMarkerRef.current as { setMap: (m: null) => void }).setMap(null);
+        centerMarkerRef.current = null;
+      }
+
       if (!dm) {
         const mgr = new gmap.drawing.DrawingManager({
           map: mapRef.current,
@@ -203,11 +256,23 @@ export default function ParcelMap({
             draggable: true,
           },
         });
-        mgr.addListener("polygoncomplete" as unknown as Parameters<typeof mgr.addListener>[0], () => {
-          // Don't auto-stop — let the user edit the polygon
+        mgr.addListener("polygoncomplete", (poly: unknown) => {
+          polygonRef.current = poly;
+          const coords = extractPolygonCoords(poly);
+          if (coords.length >= 3) {
+            onPolygonComplete?.(coords);
+          }
+          // Switch drawing mode off so further clicks don't start new polygons
+          mgr.setDrawingMode?.(null);
+          setDrawing(false);
         });
         drawingRef.current = mgr;
         setDrawing(true);
+      }
+    } else if (drawMode === "none") {
+      if (dm) {
+        dm.setDrawingMode?.(null);
+        setDrawing(false);
       }
     } else {
       if (dm) {
@@ -219,14 +284,58 @@ export default function ParcelMap({
     return () => {
       if (dm) dm.setDrawingMode?.(null);
     };
-  }, [drawMode]);
+  }, [drawMode, onPolygonComplete]);
+
+  // Display saved polygon overlay + center marker when polygonCoords changes
+  useEffect(() => {
+    const w = window as unknown as GoogleWindow;
+    const gmap = w.google?.maps;
+    if (!gmap || !mapRef.current) return;
+
+    // Clear old polygon
+    if (polygonRef.current) {
+      (polygonRef.current as { setMap: (m: null) => void }).setMap(null);
+      polygonRef.current = null;
+    }
+    // Clear old center marker
+    if (centerMarkerRef.current) {
+      (centerMarkerRef.current as { setMap: (m: null) => void }).setMap(null);
+      centerMarkerRef.current = null;
+    }
+
+    if (polygonCoords.length >= 3 && gmap.Polygon) {
+      const poly = new gmap.Polygon({
+        map: mapRef.current,
+        paths: polygonCoords,
+        strokeColor: "#8b5cf6",
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: "#8b5cf6",
+        fillOpacity: 0.15,
+        editable: false,
+        draggable: false,
+      });
+      polygonRef.current = poly;
+    }
+
+    if (polygonCenter && gmap.marker?.AdvancedMarkerElement) {
+      const Adv = gmap.marker.AdvancedMarkerElement;
+      const m = new Adv({
+        map: mapRef.current,
+        position: polygonCenter,
+        title: "Area Center",
+        gmpClickable: true,
+      });
+      centerMarkerRef.current = m;
+    }
+  }, [polygonCoords, polygonCenter]);
 
   return (
     <div className="relative h-full w-full">
       <div ref={ref} className="h-full w-full" />
       {drawing && (
-        <div className="absolute bottom-3 left-3 rounded-lg bg-emerald-900/80 px-3 py-1.5 text-xs font-medium text-emerald-100">
-          Click points on the map to draw your parcel polygon. Double-click to finish.
+        <div className="absolute bottom-3 left-3 rounded-lg bg-emerald-900/85 px-3 py-1.5 text-xs font-medium text-emerald-100 shadow-lg">
+          Click to place polygon vertices. Click first vertex again to close.
         </div>
       )}
     </div>
