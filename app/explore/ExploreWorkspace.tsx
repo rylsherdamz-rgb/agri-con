@@ -251,7 +251,6 @@ export default function ExploreWorkspace({ parcels }: { parcels: Parcel[] }) {
                     {selected.ndviBps !== null && <> &middot; NDVI {(selected.ndviBps / 100).toFixed(0)}%</>}
                   </p>
                   <div className="mt-3 flex items-center gap-2 text-xs text-stone-500">
-                    <MapPin size={12} className="text-farm-600" />
                     {selected.lat.toFixed(4)}N, {selected.lng.toFixed(4)}E
                   </div>
                 </>

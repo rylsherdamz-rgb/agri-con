@@ -66,7 +66,6 @@ export default function NavigationBar() {
           </span>
           {FARMER_LINKS.map(({ label, href, icon: Icon }) => (
             <NavLink key={href} href={href} active={isActive(href)}>
-              <Icon size={15} />
               {label}
             </NavLink>
           ))}
@@ -80,7 +79,6 @@ export default function NavigationBar() {
           </span>
           {BUYER_LINKS.map(({ label, href, icon: Icon }) => (
             <NavLink key={href} href={href} active={isActive(href)}>
-              <Icon size={15} />
               {label}
             </NavLink>
           ))}

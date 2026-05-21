@@ -4,9 +4,7 @@ import { useEffect, useState } from "react";
 import { PiggyBank, ArrowDownRight, Users } from "lucide-react";
 
 export default function LiquidityPool() {
-  const [poolBalance, setPoolBalance] = useState<number | null>(null);
-  const [distributed, setDistributed] = useState<number | null>(null);
-  const [aidedCount, setAidedCount] = useState<number | null>(null);
+  const [poolBalance, setPoolBalance] = useState<number>(0);
 
   useEffect(() => {
     async function fetchPool() {
@@ -20,20 +18,13 @@ export default function LiquidityPool() {
         if (data.ok && typeof data.balance === "number") {
           setPoolBalance(data.balance / 10_000_000);
         }
-        if (data.ok && typeof data.totalDistributed === "number") {
-          setDistributed(data.totalDistributed / 10_000_000);
-        }
-        if (data.ok && typeof data.aidedCount === "number") {
-          setAidedCount(data.aidedCount);
-        }
       } catch {}
     }
     fetchPool();
   }, []);
 
-  const balance = poolBalance ?? 0;
-  const totalDistributed = distributed ?? 0;
-  const farmersAided = aidedCount ?? 0;
+  const totalDistributed = 0;
+  const farmersAided = 0;
 
   return (
     <div className="space-y-5">
@@ -50,7 +41,7 @@ export default function LiquidityPool() {
         <div className="mt-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">Pool Balance</p>
           <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-stone-900">
-            {balance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+            {poolBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             <span className="ml-1 text-sm font-normal text-stone-500">USDC</span>
           </p>
         </div>
@@ -83,15 +74,13 @@ export default function LiquidityPool() {
           <div className="flex items-center gap-1.5 text-farm-700">
             <ArrowDownRight size={14} /> <span className="text-xs font-medium">Total Distributed</span>
           </div>
-          <p className="mt-1 text-lg font-bold tabular-nums text-stone-900">
-            {totalDistributed.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} USDC
-          </p>
+          <p className="mt-1 text-lg font-bold tabular-nums text-stone-900">On-chain</p>
         </div>
         <div className="rounded-2xl border border-stone-100 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-1.5 text-soil-600">
             <Users size={14} /> <span className="text-xs font-medium">Farmers Aided</span>
           </div>
-          <p className="mt-1 text-lg font-bold tabular-nums text-stone-900">{farmersAided}</p>
+          <p className="mt-1 text-lg font-bold tabular-nums text-stone-900">On-chain</p>
         </div>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { CheckCircle, ChevronDown, ChevronUp, Loader2, XCircle } from "lucide-react";
 
 import { useWallet } from "@/components/stellar/wallet-context";
 import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
@@ -39,8 +40,24 @@ type RunResponse =
     }
   | { ok: false; error: string; details?: string; raw?: string };
 
+type SummaryResponse = {
+  ok?: boolean;
+  summary: string;
+  recommendation: string;
+  healthLabel: string;
+  ndviPercent: string;
+  vegHealth: string;
+};
+
 function shortAddress(value: string) {
   return `${value.slice(0, 6)}...${value.slice(-6)}`;
+}
+
+function ndviColor(bps: number) {
+  if (bps >= 6000) return "text-farm-600";
+  if (bps >= 4000) return "text-harvest-600";
+  if (bps >= 2000) return "text-amber-600";
+  return "text-red-600";
 }
 
 export default function SatelliteVerificationPanel({
@@ -54,10 +71,14 @@ export default function SatelliteVerificationPanel({
   const [isRunning, setIsRunning] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [result, setResult] = useState<RunResponse | null>(null);
+  const [summary, setSummary] = useState<SummaryResponse | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [submissionHash, setSubmissionHash] = useState<string | null>(null);
   const [preparedHash, setPreparedHash] = useState<string | null>(null);
   const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+
   const busy = isRunning || isApplying;
   const requiredOracle = result?.ok ? result.oracleAddress : null;
   const canApply =
@@ -66,12 +87,38 @@ export default function SatelliteVerificationPanel({
     Boolean(requiredOracle) &&
     (!address || address === requiredOracle);
 
+  const fetchSummary = useCallback(
+    async (rawBps: number) => {
+      setSummaryLoading(true);
+      setSummary(null);
+      try {
+        const res = await fetch("/api/ai/ndvi-summary", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ndviBps: rawBps }),
+        });
+        if (res.ok) {
+          const data = (await res.json()) as SummaryResponse;
+          setSummary(data);
+        }
+      } catch {
+        // Non-critical — summary display fails silently.
+      } finally {
+        setSummaryLoading(false);
+      }
+    },
+    [],
+  );
+
   async function run() {
     setIsRunning(true);
     setError(null);
+    setResult(null);
+    setSummary(null);
     setSubmissionHash(null);
     setPreparedHash(null);
     setSubmissionStatus(null);
+    setShowDetails(false);
     try {
       const res = await fetch("/api/verification/run", {
         method: "POST",
@@ -82,6 +129,7 @@ export default function SatelliteVerificationPanel({
       setResult(json);
       if (json.ok) {
         setPreparedHash(json.preparedRecordAttestation?.hash ?? null);
+        void fetchSummary(json.ndviBps);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to run verification");
@@ -102,10 +150,15 @@ export default function SatelliteVerificationPanel({
       const admin = address ?? (await connect());
       if (!admin) throw new Error("Connect wallet first.");
       if (admin !== result.oracleAddress) {
-        throw new Error(`Connect the oracle wallet ${shortAddress(result.oracleAddress)} to continue.`);
+        throw new Error(
+          `Connect the oracle wallet ${shortAddress(result.oracleAddress)} to continue.`,
+        );
       }
 
-      const { signedTxXdr, hash } = await signPreparedXdr(admin, result.preparedRecordAttestation.xdr);
+      const { signedTxXdr, hash } = await signPreparedXdr(
+        admin,
+        result.preparedRecordAttestation.xdr,
+      );
       setPreparedHash(hash);
 
       const submission = await submitSignedXdr(signedTxXdr);
@@ -119,81 +172,164 @@ export default function SatelliteVerificationPanel({
   }
 
   return (
-    <div className="rounded-2xl border border-emerald-100/20 bg-emerald-900/40 p-4">
-      <p className="text-xs uppercase tracking-[0.16em] text-emerald-200">
-        Satellite Verification (Phase 4)
-      </p>
-      <p className="mt-2 text-sm text-emerald-50">
-        Compute NDVI mean for this parcel, create an attestation, and update listing buyability on-chain.
-      </p>
-      <div className="mt-3 rounded-xl border border-emerald-100/20 bg-emerald-950/40 p-3 text-xs text-emerald-100">
-        <div>Policy threshold: {(minNdviBps / 10000).toFixed(2)} NDVI</div>
-        <div>Sampling grid: {sampleGridSize} x {sampleGridSize}</div>
-        {temporalExtent ? (
-          <div>
-            Window: {temporalExtent.start} to {temporalExtent.end}
-          </div>
-        ) : (
-          <div>Window: trailing 30 days</div>
-        )}
-      </div>
+    <div className="space-y-3">
+      {/* --- Run button --- */}
       <button
         onClick={run}
         disabled={busy}
-        className="mt-3 w-full rounded-full bg-white px-4 py-2 text-sm font-semibold text-emerald-900 disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-farm-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-50"
       >
-        {isRunning ? "Running..." : "Run NDVI check"}
+        {isRunning && <Loader2 size={15} className="animate-spin" />}
+        {isRunning ? "Running NDVI check..." : "Run NDVI check"}
       </button>
 
-      {result?.ok && (
-        <div className="mt-3 text-sm text-emerald-50">
-          <div>NDVI mean: {result.ndviMean.toFixed(3)}</div>
-          <div>Threshold: {(result.minNdviBps / 10000).toFixed(2)}</div>
-          <div>Grid used: {result.sampleGridSize} x {result.sampleGridSize}</div>
-          <div>Window start: {result.temporalExtent.start}</div>
-          <div>Window end: {result.temporalExtent.end}</div>
-          <div>Decision: {result.buyable ? "buyable" : "hold listing"}</div>
-          <div>Observed at: {new Date(result.attestation.observedAt * 1000).toLocaleString()}</div>
-          <div>Source: {result.attestation.source}</div>
-          <div>Report hash: {shortAddress(result.attestation.reportHash)}</div>
-          <div>BBox hash: {shortAddress(result.attestation.bboxHash)}</div>
-          <div>Required oracle: {result.oracleAddress ? shortAddress(result.oracleAddress) : "missing"}</div>
-          <div>Prepared tx: {result.preparedRecordAttestation ? shortAddress(result.preparedRecordAttestation.hash) : "unavailable"}</div>
-          <button
-            onClick={() => applyBuyable()}
-            disabled={busy || !canApply}
-            className="mt-3 w-full rounded-full bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-900 disabled:opacity-60"
-          >
-            {isApplying ? "Signing and submitting..." : "Record attestation on-chain"}
-          </button>
-          {!canApply && result.oracleAddress ? (
-            <p className="mt-2 text-xs text-emerald-200">
-              Connect the oracle wallet {shortAddress(result.oracleAddress)} to submit this change.
-            </p>
-          ) : null}
+      {/* --- Error --- */}
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
+          {error}
         </div>
       )}
 
+      {/* --- Not buyable fallback --- */}
       {result && !result.ok && (
-        <p className="mt-3 text-sm text-rose-200">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs text-red-700">
           {result.error}
-          {result.details ? `: ${result.details}` : ""}
-          {"raw" in result && result.raw ? `: ${result.raw}` : ""}
-        </p>
+          {result.details ? `. ${result.details}` : ""}
+        </div>
       )}
 
+      {/* --- Result card --- */}
+      {result?.ok && (
+        <div className="rounded-xl border border-farm-200/60 bg-farm-50/40 p-3">
+          {/* Status + NDVI value row */}
+          <div className="flex items-center gap-2">
+            {result.buyable ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-farm-100 px-2 py-0.5 text-[11px] font-medium text-farm-700">
+                <CheckCircle size={12} />
+                Buyable
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                <XCircle size={12} />
+                Hold
+              </span>
+            )}
+            <span
+              className={`text-sm font-bold tabular-nums ${ndviColor(result.ndviBps)}`}
+            >
+              {result.ndviMean.toFixed(3)} NDVI
+            </span>
+            <span className="text-[11px] text-stone-400">
+              ≥ {(result.minNdviBps / 10000).toFixed(2)} required
+            </span>
+          </div>
+
+          {/* AI Summary */}
+          {(summary || summaryLoading) && (
+            <div className="mt-2.5 rounded-lg border border-stone-200 bg-white px-3 py-2.5">
+              {summaryLoading ? (
+                <div className="flex items-center gap-2 text-xs text-stone-400">
+                  <Loader2 size={12} className="animate-spin" />
+                  Analyzing satellite data...
+                </div>
+              ) : summary ? (
+                <>
+                  <p className="text-xs leading-relaxed text-stone-700">
+                    {summary.summary}
+                  </p>
+                  <p className="mt-1.5 text-[11px] font-medium text-farm-700">
+                    {summary.recommendation}
+                  </p>
+                </>
+              ) : null}
+            </div>
+          )}
+
+          {/* Expand details */}
+          <button
+            onClick={() => setShowDetails((v) => !v)}
+            className="mt-2 inline-flex items-center gap-1 text-[11px] text-stone-400 hover:text-stone-600 transition"
+          >
+            {showDetails ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            {showDetails ? "Hide details" : "Details"}
+          </button>
+
+          {showDetails && (
+            <div className="mt-2 space-y-1 rounded-lg border border-stone-100 bg-stone-50/50 px-3 py-2 text-[11px] text-stone-500">
+              <div className="flex justify-between gap-2">
+                <span>Grid</span>
+                <span className="font-mono">
+                  {result.sampleGridSize}&times;{result.sampleGridSize}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Window</span>
+                <span className="font-mono text-right">
+                  {result.temporalExtent.start.slice(0, 10)} &rarr;{" "}
+                  {result.temporalExtent.end.slice(0, 10)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Observed</span>
+                <span className="font-mono">
+                  {new Date(result.attestation.observedAt * 1000).toLocaleDateString()}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Source</span>
+                <span className="font-mono">{result.attestation.source}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Oracle</span>
+                <span className="font-mono">
+                  {result.oracleAddress
+                    ? shortAddress(result.oracleAddress)
+                    : "missing"}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* On-chain attestation button */}
+          <button
+            onClick={() => applyBuyable()}
+            disabled={busy || !canApply}
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-farm-200 bg-white px-4 py-2 text-sm font-semibold text-farm-700 transition hover:bg-farm-50 active:scale-[0.98] disabled:opacity-40"
+          >
+            {isApplying && <Loader2 size={14} className="animate-spin" />}
+            {isApplying ? "Signing..." : "Record attestation on-chain"}
+          </button>
+
+          {!canApply && result.oracleAddress && (
+            <p className="mt-2 text-center text-[11px] text-stone-400">
+              Connect the oracle wallet{" "}
+              <span className="font-mono">
+                {shortAddress(result.oracleAddress)}
+              </span>{" "}
+              to submit.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* --- Tx hashes --- */}
       {preparedHash && (
-        <p className="mt-3 text-xs text-emerald-200">
-          Signed tx hash: {preparedHash}
+        <p className="text-[11px] text-stone-400">
+          Signed:{" "}
+          <span className="font-mono">{shortAddress(preparedHash)}</span>
         </p>
       )}
       {submissionHash && (
-        <p className="mt-2 text-xs text-emerald-200">
-          Submitted tx: {submissionHash} {submissionStatus ? `(${submissionStatus})` : ""}
+        <p className="text-[11px] text-stone-400">
+          Submitted:{" "}
+          <span className="font-mono">{shortAddress(submissionHash)}</span>
+          {submissionStatus ? (
+            <span className="ml-1 text-farm-600">
+              ({submissionStatus})
+            </span>
+          ) : null}
         </p>
       )}
-
-      {error && <p className="mt-3 text-sm text-rose-200">{error}</p>}
     </div>
   );
 }

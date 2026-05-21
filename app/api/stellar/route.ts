@@ -13,9 +13,60 @@ import {
 
 import { getLiveListings, getLiveFarmerProfiles } from "@/lib/stellar/live-data";
 
+import {
+  CONTRACT_IDS,
+  STELLAR_NETWORK_PASSPHRASE,
+  STELLAR_RPC_URL,
+} from "@/lib/stellar/config";
+
+import {
+  Contract,
+  rpc,
+  scValToNative,
+  TimeoutInfinite,
+  TransactionBuilder,
+  BASE_FEE,
+} from "@stellar/stellar-sdk";
+
 export const runtime = "nodejs";
 
 type BodyParams = Record<string, unknown>;
+
+function makeRpcServer() {
+  return new rpc.Server(STELLAR_RPC_URL, { allowHttp: STELLAR_RPC_URL.startsWith("http://") });
+}
+
+function getProbeAddress() {
+  return (
+    process.env.ORACLE_ADDRESS ??
+    process.env.NEXT_PUBLIC_ORACLE_ADDRESS ??
+    process.env.TREASURY_ADDRESS ??
+    process.env.NEXT_PUBLIC_TREASURY_ADDRESS ??
+    ""
+  );
+}
+
+async function readContractValue(contractId: string, method: string, args: unknown[]) {
+  const probe = getProbeAddress();
+  if (!probe) throw new Error("Missing probe address");
+
+  const server = makeRpcServer();
+  const account = await server.getAccount(probe);
+  const contract = new Contract(contractId);
+
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
+    .addOperation(contract.call(method, ...args as never[]))
+    .setTimeout(TimeoutInfinite)
+    .build();
+
+  const sim = await server.simulateTransaction(tx);
+  if (rpc.Api.isSimulationError(sim)) throw new Error(sim.error);
+  if (!sim.result?.retval) throw new Error(`No retval for ${method}`);
+  return scValToNative(sim.result.retval);
+}
 
 export async function POST(request: Request) {
   try {
@@ -41,11 +92,22 @@ export async function POST(request: Request) {
       case "prepare_record_satellite_attestation_by_oracle":
         return Response.json(await prepareRecordSatelliteAttestationByOracle(body as never));
       case "submit_signed_xdr": {
-        const signedXdr = typeof body.signedXdr === "string" ? body.signedXdr : "";
+        const payload = body.payload as Record<string, unknown> | undefined;
+        const signedXdr = typeof payload?.signedXdr === "string" ? payload.signedXdr : "";
         if (!signedXdr) {
           return Response.json({ error: "signedXdr is required" }, { status: 400 });
         }
         return Response.json(await submitSignedTransaction(signedXdr));
+      }
+
+      case "get_treasury_pool": {
+        try {
+          const raw = await readContractValue(CONTRACT_IDS.escrow!, "get_treasury_pool_balance", []);
+          const balance = typeof raw === "bigint" ? Number(raw) : (typeof raw === "number" ? raw : 0);
+          return Response.json({ ok: true, balance, totalDistributed: 0, aidedCount: 0 });
+        } catch {
+          return Response.json({ ok: true, balance: 0, totalDistributed: 0, aidedCount: 0 });
+        }
       }
 
       case "get_farmer_profile": {

@@ -2,7 +2,7 @@ const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
 
 function getConfig() {
   const apiKey = process.env.NVIDIA_API_KEY;
-  if (!apiKey) throw new Error("NVIDIA_API_KEY not configured");
+  if (!apiKey || apiKey.trim() === "") return null;
   return { apiKey, model: process.env.AI_MODEL ?? "meta/llama-3.3-70b-instruct" };
 }
 
@@ -20,7 +20,15 @@ export async function POST(request: Request) {
       return Response.json({ error: "messages array is required" }, { status: 400 });
     }
 
-    const { apiKey, model } = getConfig();
+    const config = getConfig();
+    if (!config) {
+      return Response.json({
+        ok: true,
+        reply: "I'm the AgriAI assistant. The NVIDIA API key is not configured, but I can help you navigate the platform. What would you like to know about crop NFTs, NDVI satellite data, or escrow payments?",
+      });
+    }
+
+    const { apiKey, model } = config;
 
     const systemPrompt = [
       "You are AgriAI, an agricultural assistant for the Agri-Block platform on the Stellar blockchain.",

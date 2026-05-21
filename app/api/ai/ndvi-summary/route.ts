@@ -2,7 +2,7 @@ const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
 
 function getConfig() {
   const apiKey = process.env.NVIDIA_API_KEY;
-  if (!apiKey) throw new Error("NVIDIA_API_KEY not configured");
+  if (!apiKey || apiKey.trim() === "") return null;
   return { apiKey, model: process.env.AI_MODEL ?? "meta/llama-3.3-70b-instruct" };
 }
 
@@ -32,7 +32,19 @@ export async function POST(request: Request) {
             ? "sparse vegetation"
             : "very little vegetation (possibly bare soil or water)";
 
-    const { apiKey, model } = getConfig();
+    const config = getConfig();
+    if (!config) {
+      const healthLabel = ndviBps > 5000 ? "Healthy" : ndviBps > 3000 ? "Moderate" : "Needs Attention";
+      return Response.json({
+        ok: true,
+        summary: `NDVI at ${ndviPercent} indicates ${vegHealth}.`,
+        recommendation: ndviBps > 5000 ? "Good conditions — proceed with the forward contract." : "Consider waiting for improved vegetation index before committing.",
+        healthLabel,
+        ndviBps, ndviPercent, vegHealth, cropType, region,
+      });
+    }
+
+    const { apiKey, model } = config;
 
     const prompt = `You are an agricultural analyst. Given the following satellite NDVI data for a crop parcel, explain what it means in plain language (2-3 sentences max) and give a short harvest recommendation.
 
