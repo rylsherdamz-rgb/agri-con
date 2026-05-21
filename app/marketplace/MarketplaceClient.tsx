@@ -17,10 +17,14 @@ import {
   Users,
   ShoppingBag,
   ArrowRight,
+  Loader2,
 } from "lucide-react";
 import SearchBar from "@/components/SearchBar";
 import Filter, { type FilterState } from "@/components/Filter";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
+import CheckOutComponent from "@/components/CheckOutComponent";
+import { useWallet } from "@/components/stellar/wallet-context";
+import { buyCropNft, submitSignedXdr } from "@/lib/stellar/agri-block";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
 function NvdiRing({ value, size = 48 }: { value: number; size?: number }) {
@@ -64,16 +68,13 @@ function NvdiRing({ value, size = 48 }: { value: number; size?: number }) {
   );
 }
 
-function ListingCard({ listing }: { listing: LiveListing }) {
+function ListingCard({ listing, onBuy }: { listing: LiveListing; onBuy: () => void }) {
   const label = listing.parcelName ?? listing.cropType ?? `Parcel #${listing.nftId}`;
   const ndviBps = listing.ndviBps ?? 0;
   const ndviPct = ndviBps / 100;
 
   return (
-    <Link
-      href={`/order?nftId=${listing.nftId}`}
-      className="group card-farm card-hover flex flex-col p-5"
-    >
+    <div className="group card-farm card-hover flex flex-col p-5">
       {/* Top row: NDVI ring + title */}
       <div className="flex items-start gap-4">
         <NvdiRing value={ndviPct} size={48} />
@@ -142,21 +143,26 @@ function ListingCard({ listing }: { listing: LiveListing }) {
         </div>
       )}
 
-      {/* Hover CTA */}
-      <div className="mt-2 flex items-center justify-between opacity-0 transition group-hover:opacity-100">
-        <span className="text-[11px] font-medium text-farm-700">
-          View Details <ArrowRight size={11} className="inline ml-0.5" />
-        </span>
-      </div>
-    </Link>
+      {/* Buy button */}
+      <button
+        onClick={onBuy}
+        className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-farm-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-farm-800 active:scale-[0.98]"
+      >
+        <ShoppingBag size={15} />
+        Buy Now
+      </button>
+    </div>
   );
 }
 
 export default function MarketplaceClient({ listings }: { listings: LiveListing[] }) {
+  const { address } = useWallet();
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<FilterState>({
     cropType: "", region: "", status: "", ndviMin: null, ndviMax: null,
   });
+  const [checkoutListing, setCheckoutListing] = useState<LiveListing | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const filtered = useMemo(() => {
     return listings.filter((l) => {
@@ -183,6 +189,34 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
     .filter((l) => l.priceUsdc !== null)
     .reduce((s, l) => s + parseFloat(l.priceUsdc ?? "0"), 0);
   const regions = [...new Set(listings.map((l) => l.region).filter(Boolean))];
+
+  async function handleConfirm() {
+    if (!address || !checkoutListing) return;
+    setConfirming(true);
+    try {
+      const { signedTxXdr } = await buyCropNft({
+        buyer: address,
+        nftId: checkoutListing.nftId,
+      });
+      await submitSignedXdr(signedTxXdr);
+      setCheckoutListing(null);
+    } catch (e) {
+      console.error("Purchase failed:", e);
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  if (checkoutListing) {
+    return (
+      <CheckOutComponent
+        listing={checkoutListing}
+        onConfirm={handleConfirm}
+        onCancel={() => setCheckoutListing(null)}
+        confirming={confirming}
+      />
+    );
+  }
 
   return (
     <>
@@ -265,7 +299,11 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((listing) => (
-              <ListingCard key={listing.nftId} listing={listing} />
+              <ListingCard
+                key={listing.nftId}
+                listing={listing}
+                onBuy={() => setCheckoutListing(listing)}
+              />
             ))}
           </div>
         </>

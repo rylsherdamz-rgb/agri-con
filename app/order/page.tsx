@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react";
 import NavigationBar from "@/components/NavigationBar";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
-import CheckOutComponent from "@/components/CheckOutComponent";
-import { useWallet } from "@/components/stellar/wallet-context";
-import { buyCropNft, submitSignedXdr } from "@/lib/stellar/agri-block";
 import { MapPin, Leaf, ChevronDown, ChevronUp, Sprout, ShoppingBag, Clock, Shield } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
 import type { LiveListing } from "@/lib/stellar/live-data";
@@ -17,13 +14,10 @@ const TABS = [
 ];
 
 export default function OrderPage() {
-  const { address } = useWallet();
   const [listings, setListings] = useState<LiveListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [checkoutListing, setCheckoutListing] = useState<LiveListing | null>(null);
-  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,38 +48,6 @@ export default function OrderPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Check URL for nftId param (linked from marketplace cards)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const nftId = params.get("nftId");
-    if (nftId && listings.length > 0) {
-      const match = listings.find((l) => l.nftId === parseInt(nftId, 10));
-      if (match) {
-        setExpandedId(match.nftId);
-        setCheckoutListing(match);
-        return;
-      }
-    }
-    // Only try this once listings load
-  }, [listings]);
-
-  async function handleConfirm() {
-    if (!address || !checkoutListing) return;
-    setConfirming(true);
-    try {
-      const { signedTxXdr } = await buyCropNft({
-        buyer: address,
-        nftId: checkoutListing.nftId,
-      });
-      await submitSignedXdr(signedTxXdr);
-      setCheckoutListing(null);
-    } catch (e) {
-      console.error("Checkout failed:", e);
-    } finally {
-      setConfirming(false);
-    }
-  }
-
   const filtered = listings.filter((l) => {
     if (activeTab === "escrow") return !l.buyable;
     if (activeTab === "completed") return l.buyable;
@@ -104,26 +66,10 @@ export default function OrderPage() {
             <h1 className="font-display text-2xl font-bold tracking-tight text-stone-900">My Orders</h1>
             <p className="mt-1 text-sm text-stone-500">Track your crop purchases and settlements</p>
           </div>
-          {checkoutListing && (
-            <button onClick={() => setCheckoutListing(null)} className="btn-outline text-xs">
-              Back to orders
-            </button>
-          )}
         </div>
 
-        {/* Checkout mode */}
-        {checkoutListing ? (
-          <div className="mt-6 max-w-lg mx-auto">
-            <CheckOutComponent
-              listing={checkoutListing}
-              onConfirm={handleConfirm}
-              onCancel={() => setCheckoutListing(null)}
-            />
-          </div>
-        ) : (
-          <>
-            {/* Tabs */}
-            <div className="mt-6 flex gap-1 rounded-xl border border-stone-200 bg-stone-100 p-1 w-fit">
+        {/* Tabs */}
+        <div className="mt-6 flex gap-1 rounded-xl border border-stone-200 bg-stone-100 p-1 w-fit">
               {TABS.map((t) => (
                 <button
                   key={t.key}
@@ -268,7 +214,6 @@ export default function OrderPage() {
             </div>
           </>
         )}
-      </main>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { useWallet } from "@/components/stellar/wallet-context";
 import NavigationBar from "@/components/NavigationBar";
 import Link from "next/link";
 import {
-  MapPin, Plus, Leaf, DollarSign, Scale, CheckCircle, XCircle, ChevronRight, Sprout, List, Loader2, TrendingUp,
+  MapPin, Plus, Leaf, DollarSign, Scale, CheckCircle, XCircle,Clock, ChevronRight, Sprout, List, Loader2, TrendingUp,
 } from "lucide-react";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
