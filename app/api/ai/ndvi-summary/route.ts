@@ -1,10 +1,4 @@
-const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
-
-function getConfig() {
-  const apiKey = process.env.NVIDIA_API_KEY;
-  if (!apiKey || apiKey.trim() === "") return null;
-  return { apiKey, model: process.env.AI_MODEL ?? "meta/llama-3.3-70b-instruct" };
-}
+import { nvidiaFetch, getNvidiaConfig } from "@/lib/nvidia-fetch";
 
 export const runtime = "nodejs";
 
@@ -32,7 +26,7 @@ export async function POST(request: Request) {
             ? "sparse vegetation"
             : "very little vegetation (possibly bare soil or water)";
 
-    const config = getConfig();
+    const config = getNvidiaConfig();
     if (!config) {
       const healthLabel = ndviBps > 5000 ? "Healthy" : ndviBps > 3000 ? "Moderate" : "Needs Attention";
       return Response.json({
@@ -56,7 +50,7 @@ ${region ? `Region: ${region}` : ""}
 Respond ONLY with valid JSON — no markdown, no code fences, no extra text:
 {"summary":"plain language explanation","recommendation":"actionable recommendation","healthLabel":"Healthy"}`;
 
-    const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+    const res = await nvidiaFetch("/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

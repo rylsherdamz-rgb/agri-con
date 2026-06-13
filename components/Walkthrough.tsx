@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+import { gsap } from "@/lib/gsap-config";
+import { useGSAP } from "@gsap/react";
 import { X, ChevronRight, ChevronLeft, Wallet, User, ShieldCheck, Map, ShoppingCart, TrendingUp, CheckCircle, Sprout } from "lucide-react";
 import Link from "next/link";
+
+gsap.registerPlugin(useGSAP);
 
 const STEPS = [
   {
@@ -66,15 +70,79 @@ const STEPS = [
 export default function Walkthrough() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
+  const [animating, setAnimating] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const current = STEPS[step];
   const isFarmer = current.role === "farmer";
   const isBuyer = current.role === "buyer";
   const isSystem = current.role === "system";
 
+  // Bounce the tour button on first render
+  useGSAP(
+    () => {
+      if (!buttonRef.current) return;
+      const mm = gsap.matchMedia();
+      mm.add(
+        { reduceMotion: "(prefers-reduced-motion: reduce)" },
+        (ctx) => {
+          if (ctx.conditions?.reduceMotion) return;
+          gsap.fromTo(
+            buttonRef.current,
+            { y: -4 },
+            {
+              y: 4,
+              duration: 1.2,
+              repeat: -1,
+              yoyo: true,
+              ease: "sine.inOut",
+              delay: 2,
+            },
+          );
+        },
+      );
+    },
+    { scope: buttonRef },
+  );
+
+  // Crossfade content when step changes
+  useEffect(() => {
+    if (!contentRef.current || !open) return;
+    setAnimating(true);
+    gsap.fromTo(
+      contentRef.current,
+      { opacity: 0, y: 8 },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.25,
+        ease: "power2.out",
+        onComplete: () => setAnimating(false),
+      },
+    );
+  }, [step, open]);
+
+  // Animate modal entrance
+  useEffect(() => {
+    if (!modalRef.current || !open) return;
+    gsap.fromTo(
+      modalRef.current,
+      { opacity: 0, scale: 0.95, y: 16 },
+      { opacity: 1, scale: 1, y: 0, duration: 0.3, ease: "power3.out" },
+    );
+  }, [open]);
+
+  const changeStep = (newStep: number) => {
+    if (animating) return;
+    setStep(newStep);
+  };
+
   if (!open) {
     return (
       <button
+        ref={buttonRef}
         onClick={() => setOpen(true)}
         className="fixed bottom-24 right-6 z-40 inline-flex items-center gap-2 rounded-full border border-farm-300 bg-white px-4 py-2.5 text-sm font-medium text-farm-800 shadow-lg transition hover:bg-farm-50 hover:shadow-xl"
       >
@@ -86,7 +154,10 @@ export default function Walkthrough() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg rounded-2xl border border-stone-200 bg-white shadow-2xl">
+      <div
+        ref={modalRef}
+        className="relative w-full max-w-lg rounded-2xl border border-stone-200 bg-white shadow-2xl"
+      >
         <button
           onClick={() => setOpen(false)}
           className="absolute right-4 top-4 rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
@@ -95,66 +166,68 @@ export default function Walkthrough() {
         </button>
 
         <div className="p-6 pt-10">
-          {/* Role badge */}
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-wide ${
-              isFarmer
-                ? "bg-farm-100 text-farm-700"
-                : isBuyer
-                  ? "bg-harvest-100 text-harvest-700"
-                  : "bg-soil-100 text-soil-700"
-            }`}
-          >
-            {isFarmer ? "Farmer" : isBuyer ? "Buyer" : "System"} Step {isFarmer ? step + 1 : isBuyer ? step - 4 + 1 : "Final"}
-          </span>
+          <div ref={contentRef}>
+            {/* Role badge */}
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-3 py-0.5 text-xs font-semibold uppercase tracking-wide ${
+                isFarmer
+                  ? "bg-farm-100 text-farm-700"
+                  : isBuyer
+                    ? "bg-harvest-100 text-harvest-700"
+                    : "bg-soil-100 text-soil-700"
+              }`}
+            >
+              {isFarmer ? "Farmer" : isBuyer ? "Buyer" : "System"} Step {isFarmer ? step + 1 : isBuyer ? step - 4 + 1 : "Final"}
+            </span>
 
-          {/* Icon */}
-          <div className="mt-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-farm-100 text-farm-700">
-            <current.icon size={28} />
-          </div>
+            {/* Icon */}
+            <div className="mt-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-farm-100 text-farm-700">
+              <current.icon size={28} />
+            </div>
 
-          {/* Title */}
-          <h2 className="mt-4 font-display text-xl font-bold text-stone-900">
-            {current.title}
-          </h2>
+            {/* Title */}
+            <h2 className="mt-4 font-display text-xl font-bold text-stone-900">
+              {current.title}
+            </h2>
 
-          {/* Description */}
-          <p className="mt-2 text-sm leading-relaxed text-stone-600">
-            {current.description}
-          </p>
-
-          {/* Action */}
-          <div className="mt-4 rounded-xl border border-farm-100 bg-farm-50/50 px-4 py-3">
-            <p className="text-xs font-medium text-farm-800">What to do:</p>
-            <p className="mt-1 text-xs text-stone-600">{current.action}</p>
-          </div>
-
-          {/* Quick links */}
-          {step === 0 && (
-            <p className="mt-2 text-[11px] text-stone-400">
-              Need a test wallet? Try{" "}
-              <a href="https://freighter.app" target="_blank" rel="noopener" className="underline">
-                Freighter
-              </a>
+            {/* Description */}
+            <p className="mt-2 text-sm leading-relaxed text-stone-600">
+              {current.description}
             </p>
-          )}
-          {(step === 3 || step === 4) && (
-            <Link href="/explore" onClick={() => setOpen(false)} className="btn-primary mt-3 text-xs w-full justify-center">
-              Go to Explore Map
-            </Link>
-          )}
-          {step === 5 && (
-            <Link href="/marketplace" onClick={() => setOpen(false)} className="btn-primary mt-3 text-xs w-full justify-center">
-              Go to Marketplace
-            </Link>
-          )}
+
+            {/* Action */}
+            <div className="mt-4 rounded-xl border border-farm-100 bg-farm-50/50 px-4 py-3">
+              <p className="text-xs font-medium text-farm-800">What to do:</p>
+              <p className="mt-1 text-xs text-stone-600">{current.action}</p>
+            </div>
+
+            {/* Quick links */}
+            {step === 0 && (
+              <p className="mt-2 text-[11px] text-stone-400">
+                Need a test wallet? Try{" "}
+                <a href="https://freighter.app" target="_blank" rel="noopener" className="underline">
+                  Freighter
+                </a>
+              </p>
+            )}
+            {(step === 3 || step === 4) && (
+              <Link href="/explore" onClick={() => setOpen(false)} className="btn-primary mt-3 text-xs w-full justify-center">
+                Go to Explore Map
+              </Link>
+            )}
+            {step === 5 && (
+              <Link href="/marketplace" onClick={() => setOpen(false)} className="btn-primary mt-3 text-xs w-full justify-center">
+                Go to Marketplace
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Step controls */}
         <div className="flex items-center justify-between border-t border-stone-100 px-6 py-4">
           <button
-            onClick={() => setStep(Math.max(0, step - 1))}
-            disabled={step === 0}
+            onClick={() => changeStep(Math.max(0, step - 1))}
+            disabled={step === 0 || animating}
             className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-stone-500 transition hover:text-stone-700 disabled:opacity-30"
           >
             <ChevronLeft size={14} /> Previous
@@ -164,8 +237,8 @@ export default function Walkthrough() {
             {STEPS.map((_, i) => (
               <div
                 key={i}
-                className={`h-1.5 w-6 rounded-full transition ${
-                  i === step ? "bg-farm-500" : i < step ? "bg-farm-200" : "bg-stone-200"
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  i === step ? "w-8 bg-farm-500" : i < step ? "w-4 bg-farm-200" : "w-4 bg-stone-200"
                 }`}
               />
             ))}
@@ -173,7 +246,8 @@ export default function Walkthrough() {
 
           {step < STEPS.length - 1 ? (
             <button
-              onClick={() => setStep(step + 1)}
+              onClick={() => changeStep(step + 1)}
+              disabled={animating}
               className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium text-farm-700 transition hover:text-farm-900"
             >
               Next <ChevronRight size={14} />

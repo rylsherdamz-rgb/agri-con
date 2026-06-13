@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
-import FloatingAIButton from "@/components/FloatingAIButtont";
+import FloatingAIButton from "@/components/FloatingAIButton";
 import Walkthrough from "@/components/Walkthrough";
+import PageTransition from "@/components/PageTransition";
 
 export const metadata: Metadata = {
   title: "Agri-Block | HarvestLock",
@@ -19,7 +20,7 @@ export default function RootLayout({
     <html lang="en" className="h-full antialiased" data-scroll-behavior="smooth">
       <body className="min-h-full flex flex-col">
         <Providers>
-          {children}
+          <PageTransition>{children}</PageTransition>
           <FloatingAIButton />
           <Walkthrough />
         </Providers>

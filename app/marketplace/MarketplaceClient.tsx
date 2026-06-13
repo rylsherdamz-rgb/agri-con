@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { gsap } from "@/lib/gsap-config";
 import Link from "next/link";
 import {
   MapPin,
@@ -170,6 +171,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
   const [checkoutListing, setCheckoutListing] = useState<LiveListing | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [buyError, setBuyError] = useState<string | null>(null);
+  const cardGridRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(() => {
     return listings.filter((l) => {
@@ -187,6 +189,31 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
       return true;
     });
   }, [listings, searchQuery, filters]);
+
+  // Stagger card animations when filtered results change
+  useEffect(() => {
+    if (!cardGridRef.current) return;
+    const cards = cardGridRef.current.children;
+    const mm = gsap.matchMedia();
+    mm.add(
+      { reduceMotion: "(prefers-reduced-motion: reduce)" },
+      (ctx) => {
+        const reduce = ctx.conditions?.reduceMotion ?? false;
+        gsap.fromTo(
+          cards,
+          { opacity: reduce ? 1 : 0, y: reduce ? 0 : 20, scale: reduce ? 1 : 0.95 },
+          {
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            duration: reduce ? 0.05 : 0.4,
+            stagger: reduce ? 0 : 0.06,
+            ease: "power2.out",
+          },
+        );
+      },
+    );
+  }, [filtered]);
 
   const buyable = listings.filter((l) => l.buyable);
   const avgNdvi = listings.length > 0
@@ -316,7 +343,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
             {filtered.length} parcel{filtered.length === 1 ? "" : "s"} found
             {searchQuery && <> for &quot;{searchQuery}&quot;</>}
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div ref={cardGridRef} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((listing) => (
               <ListingCard
                 key={listing.nftId}

@@ -2,7 +2,8 @@ import NavigationBar from "@/components/NavigationBar";
 import { getLiveListings, getLiveFarmerProfiles } from "@/lib/stellar/live-data";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
 import LiquityPool from "@/components/LiquityPool";
-import { Leaf, CheckCircle, DollarSign, Users, Sprout, ShieldCheck, Map, Store, Plus, AlertTriangle, ArrowRight } from "lucide-react";
+import { AnimatedStat, QuickActionCard } from "@/components/DashboardClient";
+import { Sprout, ShieldCheck, Users, CheckCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -34,41 +35,21 @@ export default async function DashboardPage() {
         {/* Quick Actions */}
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { icon: Map, label: "Verify Parcel", href: "/explore", color: "bg-farm-50 text-farm-700 border-farm-200" },
-            { icon: Plus, label: "List Crop", href: "/explore", color: "bg-harvest-50 text-harvest-700 border-harvest-200" },
-            { icon: Store, label: "Browse Market", href: "/marketplace", color: "bg-soil-50 text-soil-700 border-soil-200" },
-            { icon: AlertTriangle, label: "Request Aid", href: "/aid", color: "bg-red-50 text-red-600 border-red-200" },
-          ].map(({ icon: Icon, label, href, color }) => (
-            <Link
-              key={label}
-              href={href}
-              className={`flex flex-col items-center gap-2 rounded-2xl border p-4 transition hover:shadow-md ${color}`}
-            >
-              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-                <Icon size={18} />
-              </div>
-              <span className="text-xs font-semibold">{label}</span>
-              <ArrowRight size={12} className="opacity-50" />
-            </Link>
+            { icon: "map", label: "Verify Parcel", href: "/explore", color: "bg-farm-50 text-farm-700 border-farm-200" },
+            { icon: "plus", label: "List Crop", href: "/explore", color: "bg-harvest-50 text-harvest-700 border-harvest-200" },
+            { icon: "store", label: "Browse Market", href: "/marketplace", color: "bg-soil-50 text-soil-700 border-soil-200" },
+            { icon: "alert-triangle", label: "Request Aid", href: "/aid", color: "bg-red-50 text-red-600 border-red-200" },
+          ].map(({ icon, label, href, color }) => (
+            <QuickActionCard key={label} label={label} href={href} color={color} icon={icon} />
           ))}
         </div>
 
         {/* Key Stats Grid */}
         <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            { icon: Leaf, label: "Total Parcels", value: listings.length, color: "bg-farm-100 text-farm-700" },
-            { icon: CheckCircle, label: "Buyable Now", value: buyable.length, color: "bg-farm-100 text-farm-600" },
-            { icon: DollarSign, label: "Market Volume", value: `$${totalVolume.toFixed(0)}`, color: "bg-harvest-100 text-harvest-700" },
-            { icon: Users, label: "Farmers", value: profiles.length, color: "bg-soil-100 text-soil-600" },
-          ].map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="card-farm p-5">
-              <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-                <Icon size={18} />
-              </div>
-              <p className="text-2xl font-bold tabular-nums text-stone-900">{value}</p>
-              <p className="mt-0.5 text-xs text-stone-500">{label}</p>
-            </div>
-          ))}
+          <AnimatedStat end={listings.length} label="Total Parcels" icon="leaf" color="bg-farm-100 text-farm-700" />
+          <AnimatedStat end={buyable.length} label="Buyable Now" icon="check-circle" color="bg-farm-100 text-farm-600" />
+          <AnimatedStat end={Math.round(totalVolume)} label="Market Volume" prefix="$" icon="dollar-sign" color="bg-harvest-100 text-harvest-700" />
+          <AnimatedStat end={profiles.length} label="Farmers" icon="users" color="bg-soil-100 text-soil-600" />
         </div>
 
         {/* Lifecycle + Treasury */}

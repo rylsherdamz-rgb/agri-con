@@ -1,12 +1,15 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import Link from "next/link";
 import { ArrowRight, Leaf, Satellite, Shield, Sprout, DollarSign, CheckCircle } from "lucide-react";
 
 gsap.registerPlugin(useGSAP);
+
+const ThreeGlobe = dynamic(() => import("@/components/ThreeGlobe"), { ssr: false });
 
 type Props = {
   listingCount: number;
@@ -57,54 +60,6 @@ function StatCounter({ end, label, prefix, started }: { end: number; label: stri
   );
 }
 
-function ParticleCanvas() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    let w = 0;
-    let h = 0;
-    const particles: { x: number; y: number; vx: number; vy: number; r: number; a: number }[] = [];
-
-    function resize() { w = canvas!.width = canvas!.offsetWidth; h = canvas!.height = canvas!.offsetHeight; }
-    resize();
-    window.addEventListener("resize", resize);
-
-    for (let i = 0; i < 50; i++) {
-      particles.push({
-        x: Math.random() * w, y: Math.random() * h,
-        vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.6) * 0.5 - 0.1,
-        r: Math.random() * 3 + 1, a: Math.random() * 0.3 + 0.05,
-      });
-    }
-
-    function draw() {
-      ctx!.clearRect(0, 0, w, h);
-      for (const p of particles) {
-        p.x += p.vx; p.y += p.vy;
-        if (p.x < -10) p.x = w + 10;
-        if (p.x > w + 10) p.x = -10;
-        if (p.y < -10) p.y = h + 10;
-        if (p.y > h + 10) { p.y = -10; p.x = Math.random() * w; }
-        ctx!.beginPath();
-        ctx!.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx!.fillStyle = `rgba(22,163,74,${p.a})`;
-        ctx!.fill();
-      }
-      animId = requestAnimationFrame(draw);
-    }
-    draw();
-
-    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", resize); };
-  }, []);
-
-  return <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 h-full w-full" />;
-}
 
 export default function HeroComponent({ listingCount, buyableCount, totalVolume, farmerCount }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -142,7 +97,7 @@ export default function HeroComponent({ listingCount, buyableCount, totalVolume,
 
   return (
     <section ref={containerRef} className="relative overflow-hidden bg-gradient-to-b from-lime-50/70 via-emerald-50/40 to-transparent pb-16 pt-10 sm:pb-20 sm:pt-16 lg:pb-28 lg:pt-24">
-      <ParticleCanvas />
+      <ThreeGlobe />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="hero-badge mb-6 flex justify-center">

@@ -2,35 +2,22 @@
 
 import { useState, useCallback, useMemo } from "react";
 import {
-  MapPin, Crosshair,
-  Leaf,
-  Satellite,
-  ChevronRight,
   X,
   Square,
   Edit,
-  Bookmark,
   Target,
   Trash2,
-  Loader2,
-  CheckCircle,
-  AlertTriangle,
-  MapPinned,
-  Rocket,
-  Sprout,
-  DollarSign,
-  Scale,
-  User,
-  Hash,
 } from "lucide-react";
 import ParcelMap from "@/components/ParcelMap";
-import SatelliteVerificationPanel from "@/components/SatelliteVerificationPanel";
+import ListingForm from "@/components/ListingForm";
+import MintSuccess from "@/components/MintSuccess";
+import BookmarkList from "@/components/BookmarkList";
+import VerificationSection from "@/components/VerificationSection";
+import ParcelList from "@/components/ParcelList";
 import { useWallet } from "@/components/stellar/wallet-context";
 import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
-
-const CROP_TYPES = ["rice", "corn", "wheat", "sugarcane", "soybean", "coconut", "banana", "coffee", "cacao", "mango"] as const;
 
 type Parcel = {
   id: number;
@@ -461,260 +448,45 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
       <div className="flex flex-col gap-4 overflow-y-auto">
         {/* === DONE === */}
         {mintStep === "done" && (
-          <div className="card-farm p-5 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-farm-100 text-farm-600">
-              <CheckCircle size={30} />
-            </div>
-            <h3 className="mt-3 text-base font-bold text-stone-800">Listing Submitted!</h3>
-            <p className="mt-1 text-sm text-stone-500">
-              Your parcel is listed as <span className="font-semibold text-harvest-600">Pending</span>.
-            </p>
-            <p className="mt-1 text-xs text-stone-400">
-              An admin will attest the NDVI data to complete verification.
-            </p>
-            {mintTxHash && (
-              <p className="mt-2 font-mono text-[10px] text-stone-400 break-all">
-                tx: {mintTxHash.slice(0, 30)}...
-              </p>
-            )}
-            {mintedNftId && (
-              <p className="mt-1 text-xs font-medium text-farm-700">
-                NFT #{mintedNftId} minted
-              </p>
-            )}
-            <button
-              onClick={() => { resetListingForm(); setMintStep("draw"); }}
-              className="btn-primary mt-4 w-full justify-center"
-            >
-              <Rocket size={16} /> List Another Parcel
-            </button>
-          </div>
+          <MintSuccess
+            mintTxHash={mintTxHash}
+            mintedNftId={mintedNftId}
+            onListAnother={() => { resetListingForm(); setMintStep("draw"); }}
+          />
         )}
 
         {/* === CREATING LISTING FORM === */}
         {hasPolygon && mintStep === "form" && (
-          <div className="card-farm overflow-y-auto p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-stone-600">
-                <MapPinned size={12} className="inline mr-1.5" />
-                Create Listing
-              </h3>
-              <button
-                onClick={clearPolygon}
-                className="rounded-lg p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            {/* Location summary */}
-            <div className="mb-4 rounded-lg bg-farm-50 px-3 py-2.5 text-xs text-farm-700">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <MapPin size={11} />
-                {polygonCoords.length} vertex polygon
-              </div>
-              <p className="mt-0.5 text-stone-500">
-                Center: {polygonCenter?.lat.toFixed(4)}, {polygonCenter?.lng.toFixed(4)}
-                {polygonCoords.length >= 3 && (
-                  <> &middot; ~{approximateHectares(polygonCoords).toFixed(1)} ha</>
-                )}
-              </p>
-              <div className="mt-1 grid grid-cols-4 gap-1 text-[10px] text-stone-400 font-mono">
-                <span>N:{displayBbox.north.toFixed(5)}</span>
-                <span>S:{displayBbox.south.toFixed(5)}</span>
-                <span>E:{displayBbox.east.toFixed(5)}</span>
-                <span>W:{displayBbox.west.toFixed(5)}</span>
-              </div>
-            </div>
-
-            {/* Form fields */}
-            <div className="space-y-3">
-              {/* Parcel Name */}
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
-                  <MapPin size={10} className="inline mr-1" /> Parcel Name
-                </label>
-                <input
-                  type="text"
-                  value={parcelName}
-                  onChange={(e) => setParcelName(e.target.value)}
-                  placeholder="e.g. Central Valley Field A"
-                  className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
-                />
-              </div>
-
-              {/* Crop Type */}
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
-                  <Sprout size={10} className="inline mr-1" /> Crop Type
-                </label>
-                <div className="grid grid-cols-5 gap-1 mb-1.5">
-                  {CROP_TYPES.map((ct) => (
-                    <button
-                      key={ct}
-                      onClick={() => setCropType(ct)}
-                      className={`rounded-md px-2 py-1 text-[11px] font-medium capitalize transition ${
-                        cropType === ct
-                          ? "bg-farm-900 text-white"
-                          : "bg-stone-100 text-stone-500 hover:bg-stone-200"
-                      }`}
-                    >
-                      {ct}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setCropType("other")}
-                    className={`rounded-md px-2 py-1 text-[11px] font-medium transition ${
-                      cropType === "other"
-                        ? "bg-farm-900 text-white"
-                        : "bg-stone-100 text-stone-500 hover:bg-stone-200"
-                    }`}
-                  >
-                    Other
-                  </button>
-                </div>
-                {cropType === "other" && (
-                  <input
-                    type="text"
-                    value={cropTypeCustom}
-                    onChange={(e) => setCropTypeCustom(e.target.value)}
-                    placeholder="Enter crop type..."
-                    className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-sm text-stone-800 outline-none focus:border-farm-400"
-                  />
-                )}
-              </div>
-
-              {/* Quantity + Price row */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
-                    <Scale size={10} className="inline mr-1" /> Quantity (kg)
-                  </label>
-                  <input
-                    type="number"
-                    value={quantityKg}
-                    onChange={(e) => setQuantityKg(e.target.value)}
-                    placeholder="5000"
-                    min={1}
-                    className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
-                    <DollarSign size={10} className="inline mr-1" /> Price (USDC)
-                  </label>
-                  <input
-                    type="number"
-                    value={priceUsdc}
-                    onChange={(e) => setPriceUsdc(e.target.value)}
-                    placeholder="250.00"
-                    min={0}
-                    step="0.01"
-                    className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
-                  />
-                </div>
-              </div>
-
-              {/* Total Yield + Region */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
-                    <Hash size={10} className="inline mr-1" /> Total Yield (kg)
-                  </label>
-                  <input
-                    type="number"
-                    value={totalYieldKg}
-                    onChange={(e) => setTotalYieldKg(e.target.value)}
-                    placeholder="10000"
-                    min={1}
-                    className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
-                    <User size={10} className="inline mr-1" /> Region
-                  </label>
-                  <input
-                    type="text"
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                    placeholder="e.g. Nueva Ecija"
-                    className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
-                  />
-                </div>
-              </div>
-
-              {/* Harvest Date */}
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
-                  <Crosshair size={10} className="inline mr-1" /> Harvest Date
-                </label>
-                <input
-                  type="date"
-                  value={harvestDate}
-                  onChange={(e) => setHarvestDate(e.target.value)}
-                  className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-farm-400"
-                />
-              </div>
-
-              {/* Satellite NDVI Verification (always shown, not optional) */}
-              <div className="rounded-lg border border-farm-200 bg-farm-50/20 p-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase text-farm-700">
-                  <Satellite size={11} className="inline mr-1" /> NDVI Satellite Check
-                </p>
-                <SatelliteVerificationPanel
-                  nftId={0}
-                  bbox={displayBbox}
-                  minNdviBps={3500}
-                  sampleGridSize={20}
-                  compact
-                  onNdviResult={(bps) => {
-                    setNdviBpsResult(bps);
-                    setNdviRun(true);
-                  }}
-                />
-              </div>
-
-              {ndviBpsResult !== null && (
-                <div className="rounded-lg border border-farm-200 bg-farm-50/30 px-3 py-2 text-xs">
-                  <span className="font-semibold text-farm-700">NDVI: {(ndviBpsResult / 100).toFixed(1)}%</span>
-                  <span className="ml-2 text-stone-400">Recorded for mint</span>
-                </div>
-              )}
-
-              {/* Mint error */}
-              {mintError && (
-                <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 border border-red-100">
-                  {mintError}
-                </div>
-              )}
-
-              {/* Submit */}
-              <button
-                onClick={handleMintSubmit}
-                disabled={!formValid || mintStep === "minting"}
-                className={`flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition active:scale-[0.98] ${
-                  formValid && mintStep !== "minting"
-                    ? "bg-stone-900 text-white hover:bg-stone-800 shadow-sm"
-                    : "bg-stone-100 text-stone-400 cursor-not-allowed"
-                }`}
-              >
-                {mintStep === "minting" ? (
-                  <>
-                    <Loader2 size={15} className="animate-spin" />
-                    Minting Crop NFT...
-                  </>
-                ) : (
-                  <>
-                    <Rocket size={15} /> List Crop &mdash; Pending Attestation
-                  </>
-                )}
-              </button>
-              <p className="text-center text-[10px] text-stone-400 -mt-1.5">
-                After minting, an admin will attest NDVI to make it buyable.
-              </p>
-            </div>
-          </div>
+          <ListingForm
+            polygonCoords={polygonCoords}
+            polygonCenter={polygonCenter}
+            displayBbox={displayBbox}
+            parcelName={parcelName}
+            cropType={cropType}
+            cropTypeCustom={cropTypeCustom}
+            quantityKg={quantityKg}
+            priceUsdc={priceUsdc}
+            totalYieldKg={totalYieldKg}
+            region={region}
+            harvestDate={harvestDate}
+            mintError={mintError}
+            ndviBpsResult={ndviBpsResult}
+            ndviRun={ndviRun}
+            mintStep={mintStep}
+            formValid={formValid}
+            approximateHectares={approximateHectares(polygonCoords)}
+            onParcelNameChange={setParcelName}
+            onCropTypeChange={setCropType}
+            onCropTypeCustomChange={setCropTypeCustom}
+            onQuantityChange={setQuantityKg}
+            onPriceChange={setPriceUsdc}
+            onTotalYieldChange={setTotalYieldKg}
+            onRegionChange={setRegion}
+            onHarvestDateChange={setHarvestDate}
+            onSubmit={handleMintSubmit}
+            onClear={clearPolygon}
+            onNdviResult={(bps) => { setNdviBpsResult(bps); setNdviRun(true); }}
+          />
         )}
 
 {/* === NO SELECTION === */}
@@ -730,111 +502,28 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
 
         {/* === SATELLITE VERIFICATION PANEL (existing parcels) === */}
         {activeNftId !== null && !hasPolygon && !selected?.noCoords && (
-          <div className="card-farm flex-1 overflow-y-auto p-4">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-600">
-              <Satellite size={13} className="inline mr-1.5" />
-              Satellite Verification
-            </h3>
-            <div className="mb-3 rounded-lg bg-stone-50 p-3 text-xs text-stone-500">
-              <div className="flex justify-between"><span>North</span><span className="font-mono">{displayBbox.north.toFixed(5)}</span></div>
-              <div className="flex justify-between mt-0.5"><span>South</span><span className="font-mono">{displayBbox.south.toFixed(5)}</span></div>
-              <div className="flex justify-between mt-0.5"><span>East</span><span className="font-mono">{displayBbox.east.toFixed(5)}</span></div>
-              <div className="flex justify-between mt-0.5"><span>West</span><span className="font-mono">{displayBbox.west.toFixed(5)}</span></div>
-            </div>
-            <SatelliteVerificationPanel
-              nftId={selected?.id ?? 0}
-              bbox={displayBbox}
-              minNdviBps={3500}
-              temporalExtent={selected?.temporalExtent}
-              sampleGridSize={20}
-            />
-          </div>
+          <VerificationSection
+            nftId={selected?.id ?? 0}
+            bbox={displayBbox}
+            temporalExtent={selected?.temporalExtent}
+          />
         )}
 
         {/* === BOOKMARKS === */}
         {bookmarks.length > 0 && (
-          <div className="card-farm overflow-y-auto p-4">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-600">
-              <Bookmark size={12} className="inline mr-1.5" />
-              Saved Areas
-            </h3>
-            <div className="space-y-1.5">
-              {bookmarks.map((b) => (
-                <div
-                  key={b.id}
-                  className="flex items-center justify-between rounded-lg border border-stone-100 px-3 py-2 text-left transition hover:border-farm-200"
-                >
-                  <button
-                    onClick={() => handleRestoreBookmark(b)}
-                    className="min-w-0 flex-1 text-left"
-                  >
-                    <p className="truncate text-sm font-medium text-stone-700">{b.label}</p>
-                    <p className="text-[10px] text-stone-400">
-                      {b.coords.length} pts &middot; {b.center.lat.toFixed(4)}, {b.center.lng.toFixed(4)}
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => handleDeleteBookmark(b.id)}
-                    className="ml-2 shrink-0 rounded p-1 text-stone-400 hover:bg-red-50 hover:text-red-500"
-                  >
-                    <X size={12} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <BookmarkList
+            bookmarks={bookmarks}
+            onRestore={handleRestoreBookmark}
+            onDelete={handleDeleteBookmark}
+          />
         )}
 
         {/* === PARCELS LIST === */}
-        <div className="card-farm flex-1 overflow-y-auto p-4">
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-stone-600">
-            <Leaf size={12} className="inline mr-1.5" />
-            Registered Parcels
-          </h3>
-          {parcels.length === 0 ? (
-            <div className="flex flex-col items-center py-8">
-              <MapPin size={24} className="mb-2 text-stone-300" />
-              <p className="text-xs text-stone-400">No parcels available</p>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              {parcels.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleSelect(p.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
-                    selected?.id === p.id
-                      ? "border-farm-400 bg-farm-50 shadow-sm"
-                      : "border-stone-100 hover:border-farm-200 hover:bg-farm-50/30"
-                  }`}
-                >
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                      selected?.id === p.id
-                        ? "bg-farm-200 text-farm-800"
-                        : "bg-farm-50 text-farm-600"
-                    }`}
-                  >
-                    <Leaf size={14} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-stone-800">{p.title}</p>
-                    <p className="text-[11px] text-stone-400">
-                      {p.region ?? "Unknown"}
-                      {p.ndviBps !== null && <> &middot; NDVI {(p.ndviBps / 100).toFixed(0)}%</>}
-                    </p>
-                  </div>
-                  {p.buyable && (
-                    <span className="shrink-0 badge-buyable">
-                      <CheckCircle size={10} /> Ready
-                    </span>
-                  )}
-                  <ChevronRight size={14} className="shrink-0 text-stone-300" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <ParcelList
+          parcels={parcels}
+          selectedId={selected?.id ?? null}
+          onSelect={handleSelect}
+        />
       </div>
     </div>
   );

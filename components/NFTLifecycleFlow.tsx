@@ -1,6 +1,11 @@
 "use client";
 
+import { useRef } from "react";
+import { gsap } from "@/lib/gsap-config";
+import { useGSAP } from "@gsap/react";
 import { Leaf, ShieldCheck, HandCoins, Sprout, CheckCircle } from "lucide-react";
+
+gsap.registerPlugin(useGSAP);
 
 export type NftStep = "minted" | "listed" | "purchased" | "growing" | "verified" | "settled";
 
@@ -21,10 +26,54 @@ interface Props {
 }
 
 export default function NFTLifecycleFlow({ current, compact = false }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const currentIdx = ORDER.indexOf(current);
+
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+      mm.add(
+        { reduceMotion: "(prefers-reduced-motion: reduce)" },
+        (ctx) => {
+          const reduce = ctx.conditions?.reduceMotion ?? false;
+          const steps = containerRef.current?.children;
+
+          if (steps) {
+            gsap.fromTo(
+              steps,
+              { opacity: reduce ? 1 : 0, y: reduce ? 0 : 16, scale: reduce ? 1 : 0.96 },
+              {
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                duration: reduce ? 0.05 : 0.45,
+                stagger: reduce ? 0 : 0.08,
+                ease: "power2.out",
+              },
+            );
+          }
+
+          // Pulse the active step
+          const activeStep = containerRef.current?.querySelector(".nft-step-active");
+          if (activeStep && !reduce) {
+            gsap.to(activeStep, {
+              boxShadow: "0 0 0 4px rgba(22,163,74,0.15)",
+              duration: 1.5,
+              repeat: -1,
+              yoyo: true,
+              ease: "sine.inOut",
+            });
+          }
+        },
+        containerRef,
+      );
+    },
+    { scope: containerRef },
+  );
 
   return (
     <div
+      ref={containerRef}
       className={`flex ${compact ? "flex-col gap-2" : "flex-wrap gap-3 sm:gap-4"}`}
     >
       {STEPS.map((step, i) => {

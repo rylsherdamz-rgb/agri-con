@@ -66,6 +66,9 @@ USDC Token: `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC`
 📸 Stellar Expert — Crop NFT Contract
 ![Testnet Screenshot](./screenshots/testnet.png)
 
+Stellar Account
+![Stellar Account](./screenshots/account.png)
+
 ### Mainnet
 
 ![Testnet Screenshot](./screenshots/mainnet.png)
