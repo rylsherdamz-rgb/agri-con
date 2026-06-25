@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(clippy::too_many_arguments)]
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error, token,
@@ -780,7 +781,10 @@ impl AgriConContract {
                     .set(&DataKey::Buyable(nft_id), &false);
 
                 Self::refund_after_disaster_internal(
-                    &env, nft_id, refund_amount, treasury_compensation,
+                    &env,
+                    nft_id,
+                    refund_amount,
+                    treasury_compensation,
                 );
 
                 {
@@ -870,12 +874,10 @@ impl AgriConContract {
             .instance()
             .get(&DataKey::TreasuryPoolBalance)
             .unwrap_or(0i128);
-        env.storage()
-            .instance()
-            .set(
-                &DataKey::TreasuryPoolBalance,
-                &(pool_before + split.treasury_amount),
-            );
+        env.storage().instance().set(
+            &DataKey::TreasuryPoolBalance,
+            &(pool_before + split.treasury_amount),
+        );
 
         // Transfer NFT ownership
         {
@@ -903,9 +905,7 @@ impl AgriConContract {
 
             crop.status = CropStatus::Reserved;
             env.storage().persistent().set(&crop_key, &crop);
-            env.storage()
-                .persistent()
-                .set(&owner_key, &buyer.clone());
+            env.storage().persistent().set(&owner_key, &buyer.clone());
 
             CropTransferredEvent {
                 nft_id,
@@ -1018,11 +1018,16 @@ impl AgriConContract {
             }
 
             let buyer_destination = MuxedAddress::from(position.buyer.clone());
-            token_client.transfer(&current_contract, &buyer_destination, &treasury_compensation);
+            token_client.transfer(
+                &current_contract,
+                &buyer_destination,
+                &treasury_compensation,
+            );
 
-            env.storage()
-                .instance()
-                .set(&DataKey::TreasuryPoolBalance, &(pool - treasury_compensation));
+            env.storage().instance().set(
+                &DataKey::TreasuryPoolBalance,
+                &(pool - treasury_compensation),
+            );
         }
 
         let updated = EscrowPosition {
@@ -1127,12 +1132,10 @@ mod tests {
         let usdc = Address::generate(env);
         let treasury = Address::generate(env);
 
-        let contract_id = env.register(
+        env.register(
             AgriConContract,
             (admin.clone(), usdc.clone(), treasury.clone()),
-        );
-
-        contract_id
+        )
     }
 
     #[test]
@@ -1143,20 +1146,19 @@ mod tests {
         let contract_id = setup(&env);
 
         env.as_contract(&contract_id, || {
-
             let nft_id = AgriConContract::mint_crop_nft(
                 env.clone(),
                 farmer.clone(),
                 String::from_str(&env, "rice"),
                 1_000i128,
-                5_000_0000i128,
+                50_000_000i128,
                 1_800_000_000u64,
             );
 
             let owner = AgriConContract::owner_of(env.clone(), nft_id);
             let price = AgriConContract::get_price(env.clone(), nft_id);
             assert_eq!(owner, farmer);
-            assert_eq!(price, 5_000_0000i128);
+            assert_eq!(price, 50_000_000i128);
         });
     }
 
@@ -1168,13 +1170,12 @@ mod tests {
         let contract_id = setup(&env);
 
         env.as_contract(&contract_id, || {
-
             let nft_id = AgriConContract::mint_crop_nft_with_listing(
                 env.clone(),
                 farmer.clone(),
                 String::from_str(&env, "rice"),
                 1_000i128,
-                5_000_0000i128,
+                50_000_000i128,
                 1_800_000_000u64,
                 String::from_str(&env, "Central Valley Parcel A"),
                 String::from_str(&env, "bbox-hash-001"),
@@ -1235,7 +1236,6 @@ mod tests {
         );
 
         env.as_contract(&contract_id, || {
-
             AgriConContract::record_satellite_attestation(
                 env.clone(),
                 9,
@@ -1272,7 +1272,6 @@ mod tests {
         );
 
         env.as_contract(&contract_id, || {
-
             AgriConContract::add_oracle(env.clone(), oracle.clone());
             assert!(AgriConContract::is_oracle(env.clone(), oracle.clone()));
 
@@ -1295,10 +1294,10 @@ mod tests {
 
     #[test]
     fn split_payment_is_70_20_10() {
-        let split = AgriConContract::split_payment(1_000_0000i128);
-        assert_eq!(split.escrow_amount, 700_0000i128);
-        assert_eq!(split.farmer_upfront, 200_0000i128);
-        assert_eq!(split.treasury_amount, 100_0000i128);
+        let split = AgriConContract::split_payment(10_000_000i128);
+        assert_eq!(split.escrow_amount, 7_000_000i128);
+        assert_eq!(split.farmer_upfront, 2_000_000i128);
+        assert_eq!(split.treasury_amount, 1_000_000i128);
     }
 
     #[test]
@@ -1314,7 +1313,7 @@ mod tests {
                 farmer.clone(),
                 String::from_str(&env, "corn"),
                 650i128,
-                7_200_0000i128,
+                72_000_000i128,
                 1_801_000_000u64,
             )
         });
@@ -1376,7 +1375,12 @@ mod tests {
         (contract_id, usdc)
     }
 
-    fn mint_buyable(client: &AgriConContractClient, env: &Env, farmer: &Address, price: i128) -> u64 {
+    fn mint_buyable(
+        client: &AgriConContractClient,
+        env: &Env,
+        farmer: &Address,
+        price: i128,
+    ) -> u64 {
         let nft_id = client.mint_crop_nft(
             farmer,
             &String::from_str(env, "rice"),
@@ -1397,23 +1401,23 @@ mod tests {
 
         let farmer = Address::generate(&env);
         let buyer = Address::generate(&env);
-        let price = 1_000_0000i128;
+        let price = 10_000_000i128;
         token::StellarAssetClient::new(&env, &usdc).mint(&buyer, &price);
 
         let nft_id = mint_buyable(&client, &env, &farmer, price);
         let position = client.buy_crop_nft(&buyer, &nft_id);
 
-        assert_eq!(position.split.escrow_amount, 700_0000i128);
-        assert_eq!(position.split.farmer_upfront, 200_0000i128);
-        assert_eq!(position.split.treasury_amount, 100_0000i128);
+        assert_eq!(position.split.escrow_amount, 7_000_000i128);
+        assert_eq!(position.split.farmer_upfront, 2_000_000i128);
+        assert_eq!(position.split.treasury_amount, 1_000_000i128);
         assert_eq!(position.status, EscrowStatus::Reserved);
 
         let token = token::TokenClient::new(&env, &usdc);
         // 20% paid upfront; contract holds 70% escrow + 10% treasury.
-        assert_eq!(token.balance(&farmer), 200_0000i128);
-        assert_eq!(token.balance(&contract_id), 800_0000i128);
+        assert_eq!(token.balance(&farmer), 2_000_000i128);
+        assert_eq!(token.balance(&contract_id), 8_000_000i128);
         assert_eq!(token.balance(&buyer), 0i128);
-        assert_eq!(client.get_treasury_pool_balance(), 100_0000i128);
+        assert_eq!(client.get_treasury_pool_balance(), 1_000_000i128);
         assert_eq!(client.owner_of(&nft_id), buyer);
         assert_eq!(client.get_crop(&nft_id).status, CropStatus::Reserved);
     }
@@ -1428,7 +1432,7 @@ mod tests {
 
         let farmer = Address::generate(&env);
         let buyer = Address::generate(&env);
-        let price = 1_000_0000i128;
+        let price = 10_000_000i128;
         token::StellarAssetClient::new(&env, &usdc).mint(&buyer, &price);
 
         let nft_id = client.mint_crop_nft(
@@ -1452,7 +1456,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let buyer = Address::generate(&env);
         let validator = Address::generate(&env);
-        let price = 1_000_0000i128;
+        let price = 10_000_000i128;
         token::StellarAssetClient::new(&env, &usdc).mint(&buyer, &price);
 
         let nft_id = mint_buyable(&client, &env, &farmer, price);
@@ -1471,8 +1475,8 @@ mod tests {
 
         let token = token::TokenClient::new(&env, &usdc);
         // 20% upfront + 70% escrow released = 90% to farmer; 10% treasury remains.
-        assert_eq!(token.balance(&farmer), 900_0000i128);
-        assert_eq!(token.balance(&contract_id), 100_0000i128);
+        assert_eq!(token.balance(&farmer), 9_000_000i128);
+        assert_eq!(token.balance(&contract_id), 1_000_000i128);
         assert_eq!(
             client.get_escrow_position(&nft_id).status,
             EscrowStatus::Released
@@ -1490,7 +1494,7 @@ mod tests {
         let farmer = Address::generate(&env);
         let buyer = Address::generate(&env);
         let validator = Address::generate(&env);
-        let price = 1_000_0000i128;
+        let price = 10_000_000i128;
         token::StellarAssetClient::new(&env, &usdc).mint(&buyer, &price);
 
         let nft_id = mint_buyable(&client, &env, &farmer, price);
@@ -1503,13 +1507,13 @@ mod tests {
             &nft_id,
             &String::from_str(&env, "Disaster"),
             &String::from_str(&env, "notes:flood"),
-            &700_0000i128,
+            &7_000_000i128,
             &0i128,
         );
 
         let token = token::TokenClient::new(&env, &usdc);
         // Buyer is refunded the 70% escrow.
-        assert_eq!(token.balance(&buyer), 700_0000i128);
+        assert_eq!(token.balance(&buyer), 7_000_000i128);
         assert_eq!(
             client.get_escrow_position(&nft_id).status,
             EscrowStatus::Refunded

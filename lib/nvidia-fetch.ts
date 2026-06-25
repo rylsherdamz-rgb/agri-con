@@ -21,7 +21,7 @@ export function nvidiaFetch(
           method: options.method,
           headers: options.headers,
           ALPNProtocols: ["http/1.1"],
-        },
+        } as any,
         (res) => {
           let data = "";
           res.on("data", (chunk: Buffer) => (data += chunk.toString()));

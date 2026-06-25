@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Leaf, Github } from "lucide-react";
+import { Leaf, ExternalLink } from "lucide-react";
 
 const GROWER_LINKS = [
   { label: "Explore Parcels", href: "/explore" },
@@ -41,7 +41,7 @@ export default function Footer() {
             rel="noopener noreferrer"
             className="mt-5 inline-flex items-center gap-2 rounded-lg border border-stone-800 bg-stone-900 px-3 py-1.5 text-xs font-medium text-stone-300 transition hover:border-farm-600/60 hover:text-lime-200"
           >
-            <Github size={14} /> View source
+            <ExternalLink size={14} /> View source
           </a>
         </div>
 

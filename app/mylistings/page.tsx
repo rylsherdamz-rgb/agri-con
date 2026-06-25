@@ -117,7 +117,7 @@ export default function MyListingsPage() {
       const backendListings: LiveListing[] = [];
       try {
         const res = await fetch(
-          `${BACKEND_URL}/api/listings?farmerId=${encodeURIComponent(address)}`,
+          `${BACKEND_URL}/api/listings?farmerId=${encodeURIComponent(address!)}`,
           { signal: ctrl.signal },
         );
         const data = await res.json();

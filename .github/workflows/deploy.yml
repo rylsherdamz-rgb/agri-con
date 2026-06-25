@@ -113,6 +113,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SUPABASE_FARMER_ID_BUCKET: ${{ secrets.SUPABASE_FARMER_ID_BUCKET }}
+          ORACLE_SECRET_KEY: ${{ secrets.ORACLE_SECRET_KEY }}
         run: |
           # Push a variable to all Vercel environments, but ONLY when it is
           # non-empty. Existing values are overwritten.
@@ -153,6 +154,7 @@ jobs:
           sync_var NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
           sync_var SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
           sync_var SUPABASE_FARMER_ID_BUCKET "$SUPABASE_FARMER_ID_BUCKET"
+          sync_var ORACLE_SECRET_KEY "$ORACLE_SECRET_KEY"
 
       - name: Build and deploy (production)
         if: steps.guard.outputs.enabled == 'true'

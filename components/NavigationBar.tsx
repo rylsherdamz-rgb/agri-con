@@ -155,6 +155,8 @@ function Divider() {
   return <div className="mx-1.5 h-5 w-px bg-stone-200" />;
 }
 
+type IconComponent = React.ComponentType<{ size?: number; className?: string }>;
+
 function NavLink({
   href,
   active,
@@ -163,7 +165,7 @@ function NavLink({
 }: {
   href: string;
   active: boolean;
-  icon?: React.ElementType;
+  icon?: IconComponent;
   children: React.ReactNode;
 }) {
   return (
@@ -201,7 +203,7 @@ function MobileLink({
 }: {
   href: string;
   active: boolean;
-  icon: React.ElementType;
+  icon: IconComponent;
   children: React.ReactNode;
   onClick: () => void;
 }) {

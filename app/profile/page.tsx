@@ -38,7 +38,7 @@ export default function ProfilePage() {
     async function fetchProfile() {
       setLoading(true);
       try {
-        const res = await fetch(`${BACKEND_URL}/api/profile?address=${encodeURIComponent(address)}`, {
+        const res = await fetch(`${BACKEND_URL}/api/profile?address=${encodeURIComponent(address!)}`, {
           signal: ctrl.signal,
         });
         const data = await res.json();

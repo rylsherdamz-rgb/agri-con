@@ -233,6 +233,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
         buyer: address,
         nftId: checkoutListing.nftId,
       });
+      if (!signedTxXdr) throw new Error("Failed to sign transaction");
       await submitSignedXdr(signedTxXdr);
       setCheckoutListing(null);
     } catch (e) {

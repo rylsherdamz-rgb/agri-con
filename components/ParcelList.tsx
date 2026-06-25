@@ -55,7 +55,7 @@ export default function ParcelList({ parcels, selectedId, onSelect }: Props) {
                 <p className="truncate text-sm font-medium text-stone-800">{p.title}</p>
                 <p className="text-[11px] text-stone-400">
                   {p.region ?? "Unknown"}
-                  {p.ndviBps !== null && <> &middot; NDVI {(p.ndviBps / 100).toFixed(0)}%</>}
+                  {p.ndviBps != null && <> &middot; NDVI {(p.ndviBps / 100).toFixed(0)}%</>}
                 </p>
               </div>
               {p.buyable && (
