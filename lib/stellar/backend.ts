@@ -2,7 +2,6 @@ import {
   BASE_FEE,
   Contract,
   rpc,
-  Soroban,
   TimeoutInfinite,
   TransactionBuilder,
   nativeToScVal,
@@ -10,6 +9,7 @@ import {
 } from "@stellar/stellar-sdk";
 
 import { CONTRACT_IDS, STELLAR_NETWORK_PASSPHRASE, STELLAR_RPC_URL } from "./config";
+
 
 type ContractKey = keyof typeof CONTRACT_IDS;
 
@@ -107,7 +107,23 @@ function getContractId(contract: ContractKey) {
 }
 
 function parseUsdcAmount(amount: string) {
-  return BigInt(Soroban.parseTokenAmount(amount || "0", 7));
+  return toStroops(amount, 7);
+}
+
+/**
+ * Convert a human-readable decimal amount string into integer base units
+ * (e.g. USDC with 7 decimals: "2500.50" -> 25005000000n). Replaces the
+ * removed `Soroban.parseTokenAmount` helper from older SDK versions.
+ */
+function toStroops(amount: string, decimals: number): bigint {
+  const trimmed = (amount ?? "0").trim();
+  const negative = trimmed.startsWith("-");
+  const unsigned = negative ? trimmed.slice(1) : trimmed;
+  const [whole = "0", fraction = ""] = unsigned.split(".");
+  const fracPadded = (fraction + "0".repeat(decimals)).slice(0, decimals);
+  const scale = 10n ** BigInt(decimals);
+  const value = BigInt(whole || "0") * scale + BigInt(fracPadded || "0");
+  return negative ? -value : value;
 }
 
 function hectaresToBps(area: number) {

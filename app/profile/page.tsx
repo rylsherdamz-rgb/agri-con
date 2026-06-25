@@ -140,14 +140,18 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (data.ok && data.uploadUrl) {
-        const putRes = await fetch(data.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type, "x-goog-content-length-range": `0,10485760` }, body: file });
+        const putRes = await fetch(data.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
         if (putRes.ok) {
           setUploadMsg("ID uploaded successfully. Awaiting verification.");
         } else {
-          setUploadMsg("Upload failed. Check your GCS bucket configuration.");
+          setUploadMsg("Upload failed. Please try again.");
         }
       } else {
-        setUploadMsg(data.error || "Could not get upload URL. GCP bucket may not be configured.");
+        setUploadMsg(data.error || "Could not get upload URL. Supabase storage may not be configured.");
       }
     } catch {
       setUploadMsg("Network error. Try again.");

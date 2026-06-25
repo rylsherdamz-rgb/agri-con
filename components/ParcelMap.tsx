@@ -207,17 +207,10 @@ export default function ParcelMap({
       const pt = { lat: e.latLng.lat(), lng: e.latLng.lng() };
       points.push(pt);
 
-      // Update polygon path
+      // Update polygon outline only. Individual vertex markers are intentionally
+      // not rendered — a single marker is placed at the polygon's center once it
+      // is closed (see the saved-polygon display effect below).
       drawingPoly?.setPaths([...points]);
-
-      // Add vertex marker
-      if (gmap.marker?.AdvancedMarkerElement) {
-        const vm = new gmap.marker.AdvancedMarkerElement({
-          map: mapRef.current, position: pt,
-          title: `Vertex ${points.length}`,
-        });
-        vertexMarkers.push(vm);
-      }
     };
 
     const dblClickHandler = () => {

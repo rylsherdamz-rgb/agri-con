@@ -1,0 +1,166 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # Supabase: push migrations (only runs if Supabase secrets are set)
+  # ──────────────────────────────────────────────────────────────
+  supabase-migrations:
+    name: Supabase migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Supabase credentials
+        id: guard
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_PROJECT_REF" ] && [ -n "$SUPABASE_DB_PASSWORD" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Supabase secrets not set (SUPABASE_ACCESS_TOKEN/PROJECT_REF/DB_PASSWORD). Skipping migrations."
+          fi
+
+      - name: Setup Supabase CLI
+        if: steps.guard.outputs.enabled == 'true'
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Push migrations
+        if: steps.guard.outputs.enabled == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+          supabase db push --password "$SUPABASE_DB_PASSWORD"
+
+  # ──────────────────────────────────────────────────────────────
+  # Vercel: sync env vars (non-empty only) + deploy to production
+  # ──────────────────────────────────────────────────────────────
+  vercel-deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: [supabase-migrations]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Check Vercel credentials
+        id: guard
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          if [ -n "$VERCEL_TOKEN" ] && [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Vercel secrets not set (VERCEL_TOKEN/ORG_ID/PROJECT_ID). Skipping deploy."
+          fi
+
+      - name: Install Vercel CLI
+        if: steps.guard.outputs.enabled == 'true'
+        run: npm i -g vercel@latest
+
+      - name: Sync environment variables (non-empty only)
+        if: steps.guard.outputs.enabled == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          # ── AI ──
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # ── Stellar ──
+          NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: ${{ secrets.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE }}
+          NEXT_PUBLIC_STELLAR_RPC_URL: ${{ secrets.NEXT_PUBLIC_STELLAR_RPC_URL }}
+          NEXT_PUBLIC_STELLAR_HORIZON_URL: ${{ secrets.NEXT_PUBLIC_STELLAR_HORIZON_URL }}
+          NEXT_PUBLIC_AGRI_CON_CONTRACT_ID: ${{ secrets.NEXT_PUBLIC_AGRI_CON_CONTRACT_ID }}
+          NEXT_PUBLIC_CROP_NFT_CONTRACT_ID: ${{ secrets.NEXT_PUBLIC_CROP_NFT_CONTRACT_ID }}
+          NEXT_PUBLIC_ESCROW_CONTRACT_ID: ${{ secrets.NEXT_PUBLIC_ESCROW_CONTRACT_ID }}
+          NEXT_PUBLIC_VERIFICATION_CONTRACT_ID: ${{ secrets.NEXT_PUBLIC_VERIFICATION_CONTRACT_ID }}
+          NEXT_PUBLIC_BACKEND_URL: ${{ secrets.NEXT_PUBLIC_BACKEND_URL }}
+          # ── Google Maps ──
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID }}
+          # ── openEO ──
+          OPENEO_BASE_URL: ${{ secrets.OPENEO_BASE_URL }}
+          OPENEO_SH_BASE_URL: ${{ secrets.OPENEO_SH_BASE_URL }}
+          OPENEO_CLIENT_ID: ${{ secrets.OPENEO_CLIENT_ID }}
+          OPENEO_CLIENT_SECRET: ${{ secrets.OPENEO_CLIENT_SECRET }}
+          # ── Supabase ──
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_FARMER_ID_BUCKET: ${{ secrets.SUPABASE_FARMER_ID_BUCKET }}
+        run: |
+          # Push a variable to all Vercel environments, but ONLY when it is
+          # non-empty. Existing values are overwritten.
+          sync_var() {
+            local name="$1"
+            local value="$2"
+            if [ -z "$value" ]; then
+              echo "skip  $name (empty / not provided)"
+              return 0
+            fi
+            for target in production preview development; do
+              vercel env rm "$name" "$target" --yes --token="$VERCEL_TOKEN" >/dev/null 2>&1 || true
+              printf '%s' "$value" | vercel env add "$name" "$target" --token="$VERCEL_TOKEN" >/dev/null 2>&1 || true
+            done
+            echo "set   $name"
+          }
+
+          sync_var NVIDIA_API_KEY "$NVIDIA_API_KEY"
+          sync_var AI_MODEL "$AI_MODEL"
+          sync_var GEMINI_API_KEY "$GEMINI_API_KEY"
+          sync_var NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE "$NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE"
+          sync_var NEXT_PUBLIC_STELLAR_RPC_URL "$NEXT_PUBLIC_STELLAR_RPC_URL"
+          sync_var NEXT_PUBLIC_STELLAR_HORIZON_URL "$NEXT_PUBLIC_STELLAR_HORIZON_URL"
+          sync_var NEXT_PUBLIC_AGRI_CON_CONTRACT_ID "$NEXT_PUBLIC_AGRI_CON_CONTRACT_ID"
+          sync_var NEXT_PUBLIC_CROP_NFT_CONTRACT_ID "$NEXT_PUBLIC_CROP_NFT_CONTRACT_ID"
+          sync_var NEXT_PUBLIC_ESCROW_CONTRACT_ID "$NEXT_PUBLIC_ESCROW_CONTRACT_ID"
+          sync_var NEXT_PUBLIC_VERIFICATION_CONTRACT_ID "$NEXT_PUBLIC_VERIFICATION_CONTRACT_ID"
+          sync_var NEXT_PUBLIC_BACKEND_URL "$NEXT_PUBLIC_BACKEND_URL"
+          sync_var NEXT_PUBLIC_GOOGLE_MAPS_API_KEY "$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"
+          sync_var NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID "$NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID"
+          sync_var OPENEO_BASE_URL "$OPENEO_BASE_URL"
+          sync_var OPENEO_SH_BASE_URL "$OPENEO_SH_BASE_URL"
+          sync_var OPENEO_CLIENT_ID "$OPENEO_CLIENT_ID"
+          sync_var OPENEO_CLIENT_SECRET "$OPENEO_CLIENT_SECRET"
+          sync_var SUPABASE_URL "$SUPABASE_URL"
+          sync_var NEXT_PUBLIC_SUPABASE_URL "$NEXT_PUBLIC_SUPABASE_URL"
+          sync_var SUPABASE_PUBLISHABLE_KEY "$SUPABASE_PUBLISHABLE_KEY"
+          sync_var NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+          sync_var SUPABASE_SERVICE_ROLE_KEY "$SUPABASE_SERVICE_ROLE_KEY"
+          sync_var SUPABASE_FARMER_ID_BUCKET "$SUPABASE_FARMER_ID_BUCKET"
+
+      - name: Build and deploy (production)
+        if: steps.guard.outputs.enabled == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
