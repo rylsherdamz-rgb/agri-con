@@ -9,7 +9,7 @@ const NVIDIA_BASE = "https://integrate.api.nvidia.com/v1";
 export function nvidiaFetch(
   path: string,
   options: { method: string; headers: Record<string, string>; body: string },
-  retries = 2,
+  retries = 1,
 ): Promise<{ ok: boolean; status: number; text: () => Promise<string>; json: () => Promise<unknown> }> {
   return new Promise((resolve, reject) => {
     const url = new URL(`${NVIDIA_BASE}${path}`);
@@ -43,7 +43,7 @@ export function nvidiaFetch(
           reject(err);
         }
       });
-      req.setTimeout(15_000, () => {
+      req.setTimeout(8_000, () => {
         req.destroy(new Error("Request timeout"));
       });
       req.write(options.body);
