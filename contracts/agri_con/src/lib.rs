@@ -1367,4 +1367,199 @@ mod tests {
             assert_eq!(updated.observation_window_days, 14u32);
         });
     }
+
+    // ── Escrow / settlement coverage ────────────────────────────────
+
+    /// Registers a real Stellar Asset Contract as USDC and an AgriCon
+    /// instance wired to it. Returns (contract_id, usdc_token_address).
+    fn setup_token_env(env: &Env) -> (Address, Address) {
+        let admin = Address::generate(env);
+        let sac = env.register_stellar_asset_contract_v2(admin.clone());
+        let usdc = sac.address();
+        let treasury = Address::generate(env);
+        let contract_id = env.register(AgriConContract, (admin, usdc.clone(), treasury));
+        (contract_id, usdc)
+    }
+
+    fn mint_buyable(client: &AgriConContractClient, env: &Env, farmer: &Address, price: i128) -> u64 {
+        let nft_id = client.mint_crop_nft(
+            farmer,
+            &String::from_str(env, "rice"),
+            &1_000i128,
+            &price,
+            &1_800_000_000u64,
+        );
+        client.set_listing_buyable(&nft_id, &true);
+        nft_id
+    }
+
+    #[test]
+    fn buy_crop_nft_splits_payment_and_transfers_ownership() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (contract_id, usdc) = setup_token_env(&env);
+        let client = AgriConContractClient::new(&env, &contract_id);
+
+        let farmer = Address::generate(&env);
+        let buyer = Address::generate(&env);
+        let price = 1_000_0000i128;
+        token::StellarAssetClient::new(&env, &usdc).mint(&buyer, &price);
+
+        let nft_id = mint_buyable(&client, &env, &farmer, price);
+        let position = client.buy_crop_nft(&buyer, &nft_id);
+
+        assert_eq!(position.split.escrow_amount, 700_0000i128);
+        assert_eq!(position.split.farmer_upfront, 200_0000i128);
+        assert_eq!(position.split.treasury_amount, 100_0000i128);
+        assert_eq!(position.status, EscrowStatus::Reserved);
+
+        let token = token::TokenClient::new(&env, &usdc);
+        // 20% paid upfront; contract holds 70% escrow + 10% treasury.
+        assert_eq!(token.balance(&farmer), 200_0000i128);
+        assert_eq!(token.balance(&contract_id), 800_0000i128);
+        assert_eq!(token.balance(&buyer), 0i128);
+        assert_eq!(client.get_treasury_pool_balance(), 100_0000i128);
+        assert_eq!(client.owner_of(&nft_id), buyer);
+        assert_eq!(client.get_crop(&nft_id).status, CropStatus::Reserved);
+    }
+
+    #[test]
+    #[should_panic]
+    fn buy_unbuyable_listing_panics() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (contract_id, usdc) = setup_token_env(&env);
+        let client = AgriConContractClient::new(&env, &contract_id);
+
+        let farmer = Address::generate(&env);
+        let buyer = Address::generate(&env);
+        let price = 1_000_0000i128;
+        token::StellarAssetClient::new(&env, &usdc).mint(&buyer, &price);
+
+        let nft_id = client.mint_crop_nft(
+            &farmer,
+            &String::from_str(&env, "rice"),
+            &1_000i128,
+            &price,
+            &1_800_000_000u64,
+        );
+        // Listing was never marked buyable — purchase must fail.
+        client.buy_crop_nft(&buyer, &nft_id);
+    }
+
+    #[test]
+    fn verify_delivery_delivered_releases_escrow() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (contract_id, usdc) = setup_token_env(&env);
+        let client = AgriConContractClient::new(&env, &contract_id);
+
+        let farmer = Address::generate(&env);
+        let buyer = Address::generate(&env);
+        let validator = Address::generate(&env);
+        let price = 1_000_0000i128;
+        token::StellarAssetClient::new(&env, &usdc).mint(&buyer, &price);
+
+        let nft_id = mint_buyable(&client, &env, &farmer, price);
+        client.buy_crop_nft(&buyer, &nft_id);
+
+        client.add_validator(&validator);
+        client.submit_proof(&farmer, &nft_id, &String::from_str(&env, "proof:harvest"));
+        client.verify_delivery(
+            &validator,
+            &nft_id,
+            &String::from_str(&env, "Delivered"),
+            &String::from_str(&env, "notes:ok"),
+            &0i128,
+            &0i128,
+        );
+
+        let token = token::TokenClient::new(&env, &usdc);
+        // 20% upfront + 70% escrow released = 90% to farmer; 10% treasury remains.
+        assert_eq!(token.balance(&farmer), 900_0000i128);
+        assert_eq!(token.balance(&contract_id), 100_0000i128);
+        assert_eq!(
+            client.get_escrow_position(&nft_id).status,
+            EscrowStatus::Released
+        );
+        assert_eq!(client.get_crop(&nft_id).status, CropStatus::Completed);
+    }
+
+    #[test]
+    fn verify_delivery_disaster_refunds_buyer() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (contract_id, usdc) = setup_token_env(&env);
+        let client = AgriConContractClient::new(&env, &contract_id);
+
+        let farmer = Address::generate(&env);
+        let buyer = Address::generate(&env);
+        let validator = Address::generate(&env);
+        let price = 1_000_0000i128;
+        token::StellarAssetClient::new(&env, &usdc).mint(&buyer, &price);
+
+        let nft_id = mint_buyable(&client, &env, &farmer, price);
+        client.buy_crop_nft(&buyer, &nft_id);
+
+        client.add_validator(&validator);
+        client.submit_proof(&farmer, &nft_id, &String::from_str(&env, "proof:loss"));
+        client.verify_delivery(
+            &validator,
+            &nft_id,
+            &String::from_str(&env, "Disaster"),
+            &String::from_str(&env, "notes:flood"),
+            &700_0000i128,
+            &0i128,
+        );
+
+        let token = token::TokenClient::new(&env, &usdc);
+        // Buyer is refunded the 70% escrow.
+        assert_eq!(token.balance(&buyer), 700_0000i128);
+        assert_eq!(
+            client.get_escrow_position(&nft_id).status,
+            EscrowStatus::Refunded
+        );
+        assert_eq!(client.get_crop(&nft_id).status, CropStatus::Failed);
+    }
+
+    #[test]
+    fn submit_proof_is_retrievable() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (contract_id, _usdc) = setup_token_env(&env);
+        let client = AgriConContractClient::new(&env, &contract_id);
+
+        let farmer = Address::generate(&env);
+        client.submit_proof(&farmer, &7u64, &String::from_str(&env, "proof:abc"));
+
+        let proof = client.get_proof(&7u64);
+        assert_eq!(proof.nft_id, 7u64);
+        assert_eq!(proof.farmer, farmer);
+        assert_eq!(proof.proof_hash, String::from_str(&env, "proof:abc"));
+    }
+
+    #[test]
+    fn farmer_profile_upsert_then_admin_verify() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let (contract_id, _usdc) = setup_token_env(&env);
+        let client = AgriConContractClient::new(&env, &contract_id);
+
+        let farmer = Address::generate(&env);
+        client.upsert_farmer_profile(
+            &farmer,
+            &String::from_str(&env, "Juan Dela Cruz"),
+            &String::from_str(&env, "Green Valley Farm"),
+            &String::from_str(&env, "Cavite"),
+            &String::from_str(&env, "gs://bucket/id.jpg"),
+            &5_000i128,
+        );
+
+        let profile = client.get_farmer_profile(&farmer);
+        assert_eq!(profile.full_name, String::from_str(&env, "Juan Dela Cruz"));
+        assert!(!profile.verified);
+
+        client.set_farmer_profile_verified(&farmer, &true);
+        assert!(client.get_farmer_profile(&farmer).verified);
+    }
 }

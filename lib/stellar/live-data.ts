@@ -170,7 +170,7 @@ export async function getLiveListings(): Promise<LiveListing[]> {
       let parcelAreaHectares: number | null = null;
       let region: string | null = null;
       let observationWindowDays: number | null = null;
-      let totalYieldKg: number | null = null;
+      const totalYieldKg: number | null = null;
 
       try {
         const crop = (await withTimeout(

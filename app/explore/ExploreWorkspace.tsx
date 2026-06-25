@@ -134,17 +134,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
 
   const effectiveCropType = cropType === "other" ? cropTypeCustom : cropType;
 
-  const clearPolygon = useCallback(() => {
-    setPolygonCoords([]);
-    setPolygonCenter(null);
-    setBbox({ west: 0, south: 0, east: 0, north: 0 });
-    setDrawMode("rect");
-    setDraftLabel("");
-    setMintStep("draw");
-    resetListingForm();
-  }, []);
-
-  const resetListingForm = () => {
+  const resetListingForm = useCallback(() => {
     setParcelName("");
     setCropType("rice");
     setCropTypeCustom("");
@@ -162,7 +152,17 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
     setMintedNftId(null);
     setNdviRun(false);
     setNdviBpsResult(null);
-  };
+  }, []);
+
+  const clearPolygon = useCallback(() => {
+    setPolygonCoords([]);
+    setPolygonCenter(null);
+    setBbox({ west: 0, south: 0, east: 0, north: 0 });
+    setDrawMode("rect");
+    setDraftLabel("");
+    setMintStep("draw");
+    resetListingForm();
+  }, [resetListingForm]);
 
   const handleSelect = (id: number) => {
     const match = parcels.find((p) => p.id === id);
@@ -386,9 +386,9 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
     : null;
 
   return (
-    <div className="grid h-[calc(100vh-8rem)] gap-4 lg:grid-cols-[1fr_380px]">
+    <div className="grid gap-4 lg:h-[calc(100vh-8rem)] lg:grid-cols-[1fr_380px]">
       {/* Left: Map + draw toggle */}
-      <div className="relative overflow-hidden rounded-2xl border border-farm-200/60 bg-stone-100">
+      <div className="relative min-h-[55vh] overflow-hidden rounded-2xl border border-farm-200/60 bg-stone-100 lg:min-h-0">
         <ParcelMap
           markers={parcels.filter((p) => !p.noCoords)}
           activeMarkerId={selected?.id}

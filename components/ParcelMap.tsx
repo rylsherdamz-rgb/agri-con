@@ -91,7 +91,7 @@ export default function ParcelMap({
   const rectRef = useRef<{ setBounds: (b: unknown) => void; setMap: (m: unknown) => void; addListener: (e: string, h: () => void) => void } | null>(null);
   const savedPolyRef = useRef<{ setMap: (m: unknown) => void } | null>(null);
   const centerMarkerRef = useRef<Record<string, unknown> | null>(null);
-  const [drawing, setDrawing] = useState(false);
+  const [drawingDone, setDrawingDone] = useState(false);
 
   const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || undefined;
   const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
@@ -186,12 +186,8 @@ export default function ParcelMap({
     if (!gmap || !mapRef.current) return;
 
     if (drawMode !== "polygon") {
-      setDrawing(false);
       return;
     }
-
-    // Clean up any existing drawing state
-    setDrawing(true);
 
     const points: { lat: number; lng: number }[] = [];
     let drawingPoly: { setPaths: (p: { lat: number; lng: number }[]) => void; setMap: (m: unknown) => void } | null = null;
@@ -232,9 +228,8 @@ export default function ParcelMap({
       vertexMarkers.forEach((m) => { try { (m as { setMap: (m: null) => void }).setMap(null); } catch {} });
       if (drawingPoly) drawingPoly.setMap(null);
 
-      const center = centerOf(points);
       onPolygonComplete?.(points);
-      setDrawing(false);
+      setDrawingDone(true);
     };
 
     gmap.event.addListener(mapRef.current, "click", clickHandler);
@@ -244,6 +239,7 @@ export default function ParcelMap({
       gmap.event.clearInstanceListeners(mapRef.current);
       vertexMarkers.forEach((m) => { try { (m as { setMap: (m: null) => void }).setMap(null); } catch {} });
       if (drawingPoly) drawingPoly.setMap(null);
+      setDrawingDone(false);
     };
   }, [drawMode, onPolygonComplete]);
 
@@ -283,7 +279,7 @@ export default function ParcelMap({
   return (
     <div className="relative h-full w-full">
       <div ref={ref} className="h-full w-full" />
-      {drawing && (
+      {drawMode === "polygon" && !drawingDone && (
         <div className="absolute bottom-3 left-3 rounded-lg bg-emerald-900/85 px-3 py-1.5 text-xs font-medium text-emerald-100 shadow-lg z-10">
           Click to place vertices. Double-click to finish (&ge;3 points).
         </div>

@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Express backend is a standalone CommonJS Node project with its own
+    // runtime and lint scope; it is not part of the Next.js app.
+    "backend/**",
+    // Rust/Soroban build artifacts.
+    "contracts/target/**",
   ]),
 ]);
 

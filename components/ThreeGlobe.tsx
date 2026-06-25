@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -142,7 +142,9 @@ function OrbitRing({ radius, tilt, speed, color }: { radius: number; tilt: numbe
 function Stars() {
   const pointsRef = useRef<THREE.Points>(null);
 
-  const { positions } = useMemo(() => {
+  // Random star positions are generated once via a lazy state initializer so
+  // the impure Math.random calls never run during render.
+  const [positions] = useState(() => {
     const pos: number[] = [];
     for (let i = 0; i < 200; i++) {
       const theta = Math.random() * Math.PI * 2;
@@ -150,8 +152,8 @@ function Stars() {
       const r = 6 + Math.random() * 4;
       pos.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
     }
-    return { positions: new Float32Array(pos) };
-  }, []);
+    return new Float32Array(pos);
+  });
 
   useFrame((_, delta) => {
     if (pointsRef.current) pointsRef.current.rotation.y += delta * 0.02;

@@ -1,0 +1,82 @@
+pipeline:
+  name: agri-con-ci
+  identifier: agri_con_ci
+  projectIdentifier: agri_con
+  orgIdentifier: default
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: account.Github
+        repoName: agri-con
+        build: <+input>
+  stages:
+    - stage:
+        name: Build and Test
+        identifier: build_and_test
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              # ── Frontend ──
+              - step:
+                  type: Run
+                  name: Frontend Install
+                  identifier: frontend_install
+                  spec:
+                    shell: Sh
+                    image: node:20
+                    command: |
+                      npm ci || npm install
+              - step:
+                  type: Run
+                  name: Frontend Lint and Build
+                  identifier: frontend_lint_build
+                  spec:
+                    shell: Sh
+                    image: node:20
+                    envVariables:
+                      NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE: "Test SDF Network ; September 2015"
+                      NEXT_PUBLIC_STELLAR_RPC_URL: "https://soroban-testnet.stellar.org"
+                      NEXT_PUBLIC_STELLAR_HORIZON_URL: "https://horizon-testnet.stellar.org"
+                    command: |
+                      npm run lint
+                      npx tsc --noEmit
+                      npm run build
+              # ── Backend ──
+              - step:
+                  type: Run
+                  name: Backend Prisma Validate
+                  identifier: backend_prisma
+                  spec:
+                    shell: Sh
+                    image: node:20
+                    command: |
+                      cd backend
+                      npm ci || npm install
+                      npx prisma validate
+                      npx prisma generate
+                      node --check server.js
+              # ── Soroban contracts ──
+              - step:
+                  type: Run
+                  name: Contracts Build and Test
+                  identifier: contracts_build_test
+                  spec:
+                    shell: Sh
+                    image: rust:1-slim
+                    command: |
+                      rustup target add wasm32-unknown-unknown
+                      rustup component add rustfmt clippy
+                      cd contracts
+                      cargo fmt --all -- --check
+                      cargo clippy --all-targets -- -D warnings
+                      cargo test --all
+                      cargo build --release --target wasm32-unknown-unknown
