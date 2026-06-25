@@ -24,6 +24,7 @@ import SearchBar from "@/components/SearchBar";
 import Filter, { type FilterState } from "@/components/Filter";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
 import CheckOutComponent from "@/components/CheckOutComponent";
+import StarRating from "@/components/StarRating";
 import { useWallet } from "@/components/stellar/wallet-context";
 import { buyCropNft, submitSignedXdr } from "@/lib/stellar/agri-block";
 import type { LiveListing } from "@/lib/stellar/live-data";
@@ -69,7 +70,9 @@ function NvdiRing({ value, size = 48 }: { value: number; size?: number }) {
   );
 }
 
-function ListingCard({ listing, onBuy }: { listing: LiveListing; onBuy: () => void }) {
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
+
+function ListingCard({ listing, farmerRating, onBuy }: { listing: LiveListing; farmerRating?: { average: number; count: number }; onBuy: () => void }) {
   const label = listing.parcelName ?? listing.cropType ?? `Parcel #${listing.nftId}`;
   const ndviBps = listing.ndviBps ?? 0;
   const ndviPct = ndviBps / 100;
@@ -138,9 +141,14 @@ function ListingCard({ listing, onBuy }: { listing: LiveListing; onBuy: () => vo
 
       {/* Trust info */}
       {listing.farmer && (
-        <div className="mt-3 flex items-center gap-1.5 border-t border-stone-100 pt-3 text-[10px] text-stone-400">
-          <Shield size={11} className="text-farm-500" />
-          <span className="truncate font-mono text-[10px]">{listing.farmer.slice(0, 4)}...{listing.farmer.slice(-4)}</span>
+        <div className="mt-3 flex items-center gap-3 border-t border-stone-100 pt-3">
+          <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
+            <Shield size={11} className="text-farm-500" />
+            <span className="truncate font-mono text-[10px]">{listing.farmer.slice(0, 4)}...{listing.farmer.slice(-4)}</span>
+          </div>
+          {farmerRating && farmerRating.count > 0 && (
+            <StarRating rating={farmerRating.average} size={11} showValue reviewCount={farmerRating.count} />
+          )}
         </div>
       )}
 
@@ -171,7 +179,29 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
   const [checkoutListing, setCheckoutListing] = useState<LiveListing | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [buyError, setBuyError] = useState<string | null>(null);
+  const [farmerRatings, setFarmerRatings] = useState<Record<string, { average: number; count: number }>>({});
   const cardGridRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const farmers = [...new Set(listings.map((l) => l.farmer).filter(Boolean) as string[])];
+    if (farmers.length === 0) return;
+    Promise.all(
+      farmers.map(async (fid) => {
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/reviews/rating/${encodeURIComponent(fid)}`);
+          const data = await res.json();
+          if (data.ok) return [fid, { average: data.average, count: data.count }] as const;
+        } catch {}
+        return null;
+      }),
+    ).then((results) => {
+      const ratings: Record<string, { average: number; count: number }> = {};
+      for (const r of results) {
+        if (r) ratings[r[0]] = r[1];
+      }
+      setFarmerRatings(ratings);
+    });
+  }, [listings]);
 
   const filtered = useMemo(() => {
     return listings.filter((l) => {
@@ -345,10 +375,11 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
             {searchQuery && <> for &quot;{searchQuery}&quot;</>}
           </p>
           <div ref={cardGridRef} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((listing) => (
+              {filtered.map((listing) => (
               <ListingCard
                 key={listing.nftId}
                 listing={listing}
+                farmerRating={listing.farmer ? farmerRatings[listing.farmer] : undefined}
                 onBuy={() => setCheckoutListing(listing)}
               />
             ))}

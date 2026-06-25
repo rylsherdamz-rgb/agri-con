@@ -1,11 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import NavigationBar from "@/components/NavigationBar";
 import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
-import { MapPin, Leaf, ChevronDown, ChevronUp, Sprout, Clock, Shield } from "lucide-react";
+import StarRating from "@/components/StarRating";
+import ReviewForm from "@/components/ReviewForm";
+import ReviewList from "@/components/ReviewList";
+import { MapPin, Leaf, ChevronDown, ChevronUp, Sprout, Clock, Shield, MessageSquare, Star } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
+import { useWallet } from "@/components/stellar/wallet-context";
 import type { LiveListing } from "@/lib/stellar/live-data";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
+
+type OrderReview = {
+  id: string;
+  orderId: string;
+  reviewer: string;
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+};
 
 const TABS = [
   { key: "all", label: "All Orders" },
@@ -14,10 +29,14 @@ const TABS = [
 ];
 
 export default function OrderPage() {
+  const { address } = useWallet();
   const [listings, setListings] = useState<LiveListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [reviewingOrder, setReviewingOrder] = useState<{ orderId: string; nftId: number; farmerId: string; parcelName: string } | null>(null);
+  const [reviews, setReviews] = useState<Record<string, OrderReview>>({});
+  const [farmerRatings, setFarmerRatings] = useState<Record<string, { average: number; count: number }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -47,6 +66,52 @@ export default function OrderPage() {
     load();
     return () => { cancelled = true; };
   }, []);
+
+  const loadReviews = useCallback(async (farmerIds: string[]) => {
+    const unique = [...new Set(farmerIds.filter(Boolean))];
+    const ratings: Record<string, { average: number; count: number }> = {};
+    await Promise.all(
+      unique.map(async (fid) => {
+        try {
+          const r = await fetch(`${BACKEND_URL}/api/reviews/rating/${encodeURIComponent(fid)}`);
+          const d = await r.json();
+          if (d.ok) ratings[fid] = { average: d.average, count: d.count };
+        } catch {}
+      }),
+    );
+    setFarmerRatings((prev) => ({ ...prev, ...ratings }));
+  }, []);
+
+  useEffect(() => {
+    if (listings.length > 0) {
+      loadReviews(listings.map((l) => l.farmer ?? ""));
+    }
+  }, [listings, loadReviews]);
+
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+    async function loadUserOrders() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/orders?buyerAddress=${encodeURIComponent(address as string)}`);
+        const data = await res.json();
+        if (!cancelled && data.ok && Array.isArray(data.orders)) {
+          const reviewMap: Record<string, OrderReview> = {};
+          for (const o of data.orders) {
+            if (o.reviews?.[0]) {
+              const nftId = o.listing?.nftId;
+              if (nftId) {
+                reviewMap[nftId] = { id: o.reviews[0].id, orderId: o.id, reviewer: o.reviews[0].reviewer, rating: o.reviews[0].rating, comment: o.reviews[0].comment, createdAt: o.reviews[0].createdAt };
+              }
+            }
+          }
+          setReviews(reviewMap);
+        }
+      } catch {}
+    }
+    loadUserOrders();
+    return () => { cancelled = true; };
+  }, [address]);
 
   const filtered = listings.filter((l) => {
     if (activeTab === "escrow") return !l.buyable;
@@ -192,6 +257,51 @@ export default function OrderPage() {
                               )}
                             </div>
                           </div>
+                          {/* Review section */}
+                          <div className="mt-4 border-t border-stone-200 pt-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="flex items-center gap-1.5 text-sm font-semibold text-stone-700">
+                                <MessageSquare size={14} /> Review
+                              </h4>
+                              {farmerRatings[l.farmer ?? ""]?.count > 0 && (
+                                <StarRating
+                                  rating={farmerRatings[l.farmer ?? ""].average}
+                                  size={13}
+                                  showValue
+                                  reviewCount={farmerRatings[l.farmer ?? ""].count}
+                                />
+                              )}
+                            </div>
+                            {l.buyable && l.farmer ? (
+                              reviews[l.nftId.toString()] ? (
+                                <div className="mt-2 rounded-xl border border-farm-100 bg-farm-50/50 p-3">
+                                  <div className="flex items-center gap-2">
+                                    <StarRating rating={reviews[l.nftId.toString()].rating} size={14} />
+                                    <span className="text-xs text-stone-400">{new Date(reviews[l.nftId.toString()].createdAt).toLocaleDateString()}</span>
+                                  </div>
+                                  {reviews[l.nftId.toString()].comment && (
+                                    <p className="mt-1 text-sm text-stone-600">{reviews[l.nftId.toString()].comment}</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setReviewingOrder({ orderId: l.nftId.toString(), nftId: l.nftId, farmerId: l.farmer!, parcelName: label })}
+                                  className="btn-outline mt-2 w-full justify-center text-xs"
+                                >
+                                  <Star size={13} /> Leave a Review
+                                </button>
+                              )
+                            ) : (
+                              !l.buyable && (
+                                <p className="mt-2 text-xs text-stone-400">Review available after settlement</p>
+                              )
+                            )}
+                            {l.farmer && (
+                              <div className="mt-3">
+                                <ReviewList farmerId={l.farmer} compact initialCount={2} />
+                              </div>
+                            )}
+                          </div>
                           <div className="mt-3 flex gap-4 text-xs">
                             <a href="/explore" className="font-medium text-farm-700 hover:underline">
                               View on Map
@@ -205,6 +315,20 @@ export default function OrderPage() {
               )}
             </div>
       </main>
+
+      {reviewingOrder && (
+        <ReviewForm
+          orderId={reviewingOrder.orderId}
+          farmerId={reviewingOrder.farmerId}
+          reviewer={address ?? ""}
+          parcelName={reviewingOrder.parcelName}
+          onClose={() => setReviewingOrder(null)}
+          onSubmitted={() => {
+            setReviewingOrder(null);
+            loadReviews([reviewingOrder.farmerId]);
+          }}
+        />
+      )}
     </div>
   );
 }

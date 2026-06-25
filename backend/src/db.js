@@ -71,4 +71,32 @@ async function recordAttestation(data) {
   });
 }
 
-module.exports = { prisma, upsertFarmer, getFarmer, listFarmers, upsertListing, getListings, createOrder, getOrders, recordAttestation };
+async function createReview(data) {
+  const { orderId, reviewer, farmerId, rating, comment } = data;
+  return prisma.review.create({
+    data: { orderId, reviewer, farmerId, rating, comment },
+  });
+}
+
+async function getReviews({ farmerId, orderId, reviewer } = {}) {
+  const where = {};
+  if (farmerId) where.farmerId = farmerId;
+  if (orderId) where.orderId = orderId;
+  if (reviewer) where.reviewer = reviewer;
+  return prisma.review.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    include: { order: { include: { listing: { select: { parcelName: true, cropType: true } } } } },
+  });
+}
+
+async function getAverageRating(farmerId) {
+  const agg = await prisma.review.aggregate({
+    where: { farmerId },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+  return { average: agg._avg.rating ?? 0, count: agg._count.rating };
+}
+
+module.exports = { prisma, upsertFarmer, getFarmer, listFarmers, upsertListing, getListings, createOrder, getOrders, recordAttestation, createReview, getReviews, getAverageRating };

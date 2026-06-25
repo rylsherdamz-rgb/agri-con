@@ -28,14 +28,7 @@ export async function POST(request: Request) {
 
     const config = getNvidiaConfig();
     if (!config) {
-      const healthLabel = ndviBps > 5000 ? "Healthy" : ndviBps > 3000 ? "Moderate" : "Needs Attention";
-      return Response.json({
-        ok: true,
-        summary: `NDVI at ${ndviPercent} indicates ${vegHealth}.`,
-        recommendation: ndviBps > 5000 ? "Good conditions — proceed with the forward contract." : "Consider waiting for improved vegetation index before committing.",
-        healthLabel,
-        ndviBps, ndviPercent, vegHealth, cropType, region,
-      });
+      return Response.json({ error: "NVIDIA_API_KEY not configured" }, { status: 500 });
     }
 
     const { apiKey, model } = config;
@@ -83,11 +76,7 @@ Respond ONLY with valid JSON — no markdown, no code fences, no extra text:
       const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(cleaned);
     } catch {
-      parsed = {
-        summary: raw.slice(0, 300) || `NDVI at ${ndviPercent} indicates ${vegHealth}.`,
-        recommendation: ndviBps > 5000 ? "Good conditions — proceed with the forward contract." : "Consider waiting for improved vegetation index before committing.",
-        healthLabel: ndviBps > 5000 ? "Healthy" : ndviBps > 3000 ? "Moderate" : "Needs Attention",
-      };
+      return Response.json({ error: "NVIDIA API returned invalid JSON", raw }, { status: 502 });
     }
 
     return Response.json({ ok: true, ...parsed, ndviBps, ndviPercent, vegHealth, cropType, region });

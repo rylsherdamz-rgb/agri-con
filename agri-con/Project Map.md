@@ -13,6 +13,7 @@ Agri-Block is a decentralized forward-contract marketplace for agricultural comm
 - [[USDC Escrow]] - 70/20/10 split for payment security.
 - [[Satellite Verification]] - NDVI-gated listing process.
 - [[Farmer ID Verification]] - On-chain identity.
+- [[Review System]] - Buyer ratings & feedback after settlement.
 
 ## 🎯 Roadmap (What to Build)
 ### Near-Term

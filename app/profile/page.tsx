@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useWallet } from "@/components/stellar/wallet-context";
 import NavigationBar from "@/components/NavigationBar";
-import { CheckCircle, XCircle, User, Upload, Loader2, BadgeCheck, Plus, ShieldAlert, Sprout } from "lucide-react";
+import StarRating from "@/components/StarRating";
+import ReviewList from "@/components/ReviewList";
+import { CheckCircle, XCircle, User, Upload, Loader2, BadgeCheck, Plus, ShieldAlert, Sprout, Star, MessageSquare } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
 import Link from "next/link";
 
@@ -133,6 +135,7 @@ export default function ProfilePage() {
     setUploading(true);
     setUploadMsg("");
     try {
+      // Try Next.js Supabase route first
       const res = await fetch("/api/farmer-id/upload-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -147,11 +150,20 @@ export default function ProfilePage() {
         });
         if (putRes.ok) {
           setUploadMsg("ID uploaded successfully. Awaiting verification.");
-        } else {
-          setUploadMsg("Upload failed. Please try again.");
+          return;
         }
+      }
+      // Fallback: direct upload to Supabase
+      const form = new FormData();
+      form.append("file", file);
+      form.append("bucket", "farmer-ids");
+      form.append("folder", address);
+      const fallbackRes = await fetch("/api/upload", { method: "POST", body: form });
+      const fallback = await fallbackRes.json();
+      if (fallback.ok) {
+        setUploadMsg("ID uploaded successfully. Awaiting verification.");
       } else {
-        setUploadMsg(data.error || "Could not get upload URL. Supabase storage may not be configured.");
+        setUploadMsg(fallback.error || "Upload failed. Supabase storage may not be configured.");
       }
     } catch {
       setUploadMsg("Network error. Try again.");
@@ -357,10 +369,37 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
+
+              {/* Reviews section */}
+              <div className="card-farm p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
+                    <MessageSquare size={12} /> Reviews
+                  </p>
+                  {address && <StarRatingComponent farmerId={address} />}
+                </div>
+                {address ? (
+                  <ReviewList farmerId={address} compact={false} />
+                ) : (
+                  <p className="text-xs text-stone-400">Connect wallet to see reviews</p>
+                )}
+              </div>
             </div>
           </div>
         )}
       </main>
     </div>
   );
+}
+
+function StarRatingComponent({ farmerId }: { farmerId: string }) {
+  const [rating, setRating] = useState<{ average: number; count: number } | null>(null);
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/reviews/rating/${encodeURIComponent(farmerId)}`)
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setRating(d); })
+      .catch(() => {});
+  }, [farmerId]);
+  if (!rating || rating.count === 0) return <span className="text-xs text-stone-400">No reviews yet</span>;
+  return <StarRating rating={rating.average} size={13} showValue reviewCount={rating.count} />;
 }

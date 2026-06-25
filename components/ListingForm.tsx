@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   MapPin,
   Satellite,
@@ -13,6 +14,7 @@ import {
   Loader2,
   X,
   MapPinned,
+  Image,
 } from "lucide-react";
 import SatelliteVerificationPanel from "@/components/SatelliteVerificationPanel";
 
@@ -51,9 +53,11 @@ interface Props {
   onTotalYieldChange: (v: string) => void;
   onRegionChange: (v: string) => void;
   onHarvestDateChange: (v: string) => void;
-  onSubmit: () => void;
-  onClear: () => void;
+  onRunNdvi?: () => void;
   onNdviResult: (bps: number) => void;
+  onSubmit: () => void;
+  onClear?: () => void;
+  onImageChange?: (url: string) => void;
 }
 
 export default function ListingForm({
@@ -83,8 +87,10 @@ export default function ListingForm({
   onRegionChange,
   onHarvestDateChange,
   onSubmit,
+  onRunNdvi,
   onClear,
   onNdviResult,
+  onImageChange,
 }: Props) {
   return (
     <div className="card-farm overflow-y-auto p-4">
@@ -275,6 +281,12 @@ export default function ListingForm({
           </div>
         )}
 
+        {/* Crop image upload */}
+        <div>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">Crop Photo (optional)</label>
+          <CropImageUpload onImageChange={(url) => onImageChange?.(url)} />
+        </div>
+
         {/* Mint error */}
         {mintError && (
           <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 border border-red-100">
@@ -308,5 +320,56 @@ export default function ListingForm({
         </p>
       </div>
     </div>
+  );
+}
+
+function CropImageUpload({ onImageChange }: { onImageChange: (url: string) => void }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPreview(URL.createObjectURL(file));
+    setUploading(true);
+
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("bucket", "crop-images");
+      form.append("folder", "listings");
+
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const data = await res.json();
+      if (data.ok) {
+        onImageChange(data.url);
+      }
+    } catch {
+      // silently fail — image is optional
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-stone-300 bg-stone-50/50 px-4 py-3 transition hover:border-farm-400 hover:bg-farm-50/20">
+      {preview ? (
+        <img src={preview} alt="preview" className="h-12 w-12 rounded-lg object-cover" />
+      ) : (
+        <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-stone-100 text-stone-400">
+          {uploading ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : (
+            <Image size={18} />
+          )}
+        </div>
+      )}
+      <div className="flex-1 text-xs">
+        <p className="font-medium text-stone-600">{preview ? "Change photo" : "Crop photo"}</p>
+        <p className="text-stone-400">PNG, JPG up to 5MB</p>
+      </div>
+      <input type="file" accept="image/png,image/jpeg" className="hidden" onChange={handleFile} />
+    </label>
   );
 }

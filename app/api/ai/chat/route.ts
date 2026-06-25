@@ -16,10 +16,7 @@ export async function POST(request: Request) {
 
     const config = getNvidiaConfig();
     if (!config) {
-      return Response.json({
-        ok: true,
-        reply: "I'm the AgriAI assistant. The NVIDIA API key is not configured, but I can help you navigate the platform. What would you like to know about crop NFTs, NDVI satellite data, or escrow payments?",
-      });
+      return Response.json({ error: "NVIDIA_API_KEY not configured" }, { status: 500 });
     }
 
     const { apiKey, model } = config;

@@ -54,7 +54,21 @@ model Order {
   status       String   @default("escrow")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+  reviews      Review[]
   @@map("orders")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  orderId   String   @map("order_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  reviewer  String   // wallet address of the reviewer
+  farmerId  String   @map("farmer_id") // wallet address of the farmer being reviewed
+  rating    Int      // 1–5
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([orderId, reviewer])
+  @@map("reviews")
 }
 
 model Attestation {
