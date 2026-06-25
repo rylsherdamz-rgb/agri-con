@@ -7,7 +7,7 @@ use soroban_sdk::{
 
 // ── Shared enums ──────────────────────────────────────────────────────────
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 #[contracttype]
 pub enum CropStatus {
     Available,
@@ -18,7 +18,7 @@ pub enum CropStatus {
     Failed,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 #[contracttype]
 pub enum EscrowStatus {
     Reserved,
@@ -26,7 +26,7 @@ pub enum EscrowStatus {
     Refunded,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Debug)]
 #[contracttype]
 pub enum VerificationStatus {
     Pending,
@@ -1132,12 +1132,6 @@ mod tests {
             (admin.clone(), usdc.clone(), treasury.clone()),
         );
 
-        env.as_contract(&contract_id, || {
-            let token_client = token::TokenClient::new(env, &usdc);
-            token_client.mint(&admin, &1_000_000_000_000i128);
-            token_client.mint(&contract_id, &1_000_000_000_000i128);
-        });
-
         contract_id
     }
 
@@ -1149,9 +1143,8 @@ mod tests {
         let contract_id = setup(&env);
 
         env.as_contract(&contract_id, || {
-            let contract = AgriConContract;
 
-            let nft_id = contract.mint_crop_nft(
+            let nft_id = AgriConContract::mint_crop_nft(
                 env.clone(),
                 farmer.clone(),
                 String::from_str(&env, "rice"),
@@ -1160,8 +1153,8 @@ mod tests {
                 1_800_000_000u64,
             );
 
-            let owner = contract.owner_of(env.clone(), nft_id);
-            let price = contract.get_price(env.clone(), nft_id);
+            let owner = AgriConContract::owner_of(env.clone(), nft_id);
+            let price = AgriConContract::get_price(env.clone(), nft_id);
             assert_eq!(owner, farmer);
             assert_eq!(price, 5_000_0000i128);
         });
@@ -1175,9 +1168,8 @@ mod tests {
         let contract_id = setup(&env);
 
         env.as_contract(&contract_id, || {
-            let contract = AgriConContract;
 
-            let nft_id = contract.mint_crop_nft_with_listing(
+            let nft_id = AgriConContract::mint_crop_nft_with_listing(
                 env.clone(),
                 farmer.clone(),
                 String::from_str(&env, "rice"),
@@ -1192,7 +1184,7 @@ mod tests {
                 30u32,
             );
 
-            let listing = contract.get_listing_metadata(env.clone(), nft_id);
+            let listing = AgriConContract::get_listing_metadata(env.clone(), nft_id);
             assert_eq!(listing.nft_id, nft_id);
             assert_eq!(
                 listing.parcel_name,
@@ -1223,10 +1215,9 @@ mod tests {
         );
 
         env.as_contract(&contract_id, || {
-            let contract = AgriConContract;
-            assert!(!contract.is_listing_buyable(env.clone(), 1));
-            contract.set_listing_buyable(env.clone(), 1, true);
-            assert!(contract.is_listing_buyable(env.clone(), 1));
+            assert!(!AgriConContract::is_listing_buyable(env.clone(), 1));
+            AgriConContract::set_listing_buyable(env.clone(), 1, true);
+            assert!(AgriConContract::is_listing_buyable(env.clone(), 1));
         });
     }
 
@@ -1244,9 +1235,8 @@ mod tests {
         );
 
         env.as_contract(&contract_id, || {
-            let contract = AgriConContract;
 
-            contract.record_satellite_attestation(
+            AgriConContract::record_satellite_attestation(
                 env.clone(),
                 9,
                 1_716_123_456,
@@ -1258,12 +1248,12 @@ mod tests {
                 String::from_str(&env, "openEO-SentinelHub"),
             );
 
-            let attestation = contract.get_satellite_attestation(env.clone(), 9);
+            let attestation = AgriConContract::get_satellite_attestation(env.clone(), 9);
             assert_eq!(attestation.nft_id, 9);
             assert_eq!(attestation.ndvi_bps, 4821);
             assert_eq!(attestation.min_ndvi_bps, 3500);
             assert!(attestation.buyable);
-            assert!(contract.is_listing_buyable(env.clone(), 9));
+            assert!(AgriConContract::is_listing_buyable(env.clone(), 9));
         });
     }
 
@@ -1282,12 +1272,11 @@ mod tests {
         );
 
         env.as_contract(&contract_id, || {
-            let contract = AgriConContract;
 
-            contract.add_oracle(env.clone(), oracle.clone());
-            assert!(contract.is_oracle(env.clone(), oracle.clone()));
+            AgriConContract::add_oracle(env.clone(), oracle.clone());
+            assert!(AgriConContract::is_oracle(env.clone(), oracle.clone()));
 
-            contract.record_sat_attest_oracle(
+            AgriConContract::record_sat_attest_oracle(
                 env.clone(),
                 oracle.clone(),
                 42,
@@ -1300,7 +1289,7 @@ mod tests {
                 String::from_str(&env, "openEO-SentinelHub"),
             );
 
-            assert!(contract.is_listing_buyable(env.clone(), 42));
+            assert!(AgriConContract::is_listing_buyable(env.clone(), 42));
         });
     }
 
@@ -1319,19 +1308,19 @@ mod tests {
         let farmer = Address::generate(&env);
         let contract_id = setup(&env);
 
-        env.as_contract(&contract_id, || {
-            let contract = AgriConContract;
-
-            let nft_id = contract.mint_crop_nft(
+        let nft_id = env.as_contract(&contract_id, || {
+            AgriConContract::mint_crop_nft(
                 env.clone(),
                 farmer.clone(),
                 String::from_str(&env, "corn"),
                 650i128,
                 7_200_0000i128,
                 1_801_000_000u64,
-            );
+            )
+        });
 
-            contract.set_listing_metadata(
+        env.as_contract(&contract_id, || {
+            AgriConContract::set_listing_metadata(
                 env.clone(),
                 farmer.clone(),
                 nft_id,
@@ -1342,10 +1331,14 @@ mod tests {
                 3_800u64,
                 21u32,
             );
+        });
 
-            let original = contract.get_listing_metadata(env.clone(), nft_id);
+        let original = env.as_contract(&contract_id, || {
+            AgriConContract::get_listing_metadata(env.clone(), nft_id)
+        });
 
-            contract.set_listing_metadata(
+        env.as_contract(&contract_id, || {
+            AgriConContract::set_listing_metadata(
                 env.clone(),
                 farmer.clone(),
                 nft_id,
@@ -1356,16 +1349,18 @@ mod tests {
                 4_000u64,
                 14u32,
             );
-
-            let updated = contract.get_listing_metadata(env.clone(), nft_id);
-            assert_eq!(updated.listed_at, original.listed_at);
-            assert_eq!(
-                updated.parcel_name,
-                String::from_str(&env, "Bukidnon Parcel North Revised")
-            );
-            assert_eq!(updated.min_ndvi_bps, 4_000u64);
-            assert_eq!(updated.observation_window_days, 14u32);
         });
+
+        let updated = env.as_contract(&contract_id, || {
+            AgriConContract::get_listing_metadata(env.clone(), nft_id)
+        });
+        assert_eq!(updated.listed_at, original.listed_at);
+        assert_eq!(
+            updated.parcel_name,
+            String::from_str(&env, "Bukidnon Parcel North Revised")
+        );
+        assert_eq!(updated.min_ndvi_bps, 4_000u64);
+        assert_eq!(updated.observation_window_days, 14u32);
     }
 
     // ── Escrow / settlement coverage ────────────────────────────────

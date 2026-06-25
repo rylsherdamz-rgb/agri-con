@@ -20,6 +20,7 @@
     "gsap": "^3.15.0",
     "lucide-react": "^1.16.0",
     "next": "16.2.6",
+    "opencode-ponytail": "^4.7.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "three": "^0.184.0"
@@ -33,5 +34,18 @@
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "allowScripts": {
+    "@reown/appkit@1.8.19": true,
+    "@stellar/stellar-sdk@14.2.0": true,
+    "protobufjs@7.4.0": true,
+    "protobufjs@7.5.5": true,
+    "blake-hash@2.0.0": true,
+    "bufferutil@4.1.0": true,
+    "secp256k1@5.0.1": true,
+    "sharp@0.34.5": true,
+    "tiny-secp256k1@1.1.7": true,
+    "usb@2.18.0": true,
+    "utf-8-validate@6.0.6": true
   }
 }

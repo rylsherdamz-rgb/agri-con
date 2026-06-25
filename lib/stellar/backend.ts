@@ -1,6 +1,7 @@
 import {
   BASE_FEE,
   Contract,
+  Keypair,
   rpc,
   TimeoutInfinite,
   TransactionBuilder,
@@ -333,4 +334,36 @@ export async function submitSignedTransaction(signedXdr: string) {
   const tx = TransactionBuilder.fromXDR(signedXdr, STELLAR_NETWORK_PASSPHRASE);
   const sendResult = await server.sendTransaction(tx);
   return sendResult;
+}
+
+export async function submitRecordSatelliteAttestationByOracle(
+  input: RecordSatelliteAttestationByOracleInput & { oracleSecretKey: string },
+) {
+  const server = makeRpcServer();
+  const account = await server.getAccount(input.oracle);
+  const contractId = getContractId("agriCon");
+  const contract = new Contract(contractId);
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
+    .addOperation(
+      contract.call("record_sat_attest_oracle", ...[
+        nativeToScVal(input.oracle, { type: "address" }),
+        nativeToScVal(input.nftId, { type: "u64" }),
+        nativeToScVal(input.observedAt, { type: "u64" }),
+        nativeToScVal(input.ndviBps, { type: "u64" }),
+        nativeToScVal(input.minNdviBps, { type: "u64" }),
+        nativeToScVal(input.buyable, { type: "bool" }),
+        nativeToScVal(input.bboxHash, { type: "string" }),
+        nativeToScVal(input.reportHash, { type: "string" }),
+        nativeToScVal(input.source, { type: "string" }),
+      ]),
+    )
+    .setTimeout(TimeoutInfinite)
+    .build();
+  const prepared = await server.prepareTransaction(tx);
+  const keypair = Keypair.fromSecret(input.oracleSecretKey);
+  prepared.sign(keypair);
+  return server.sendTransaction(prepared);
 }

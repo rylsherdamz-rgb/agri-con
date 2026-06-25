@@ -16,6 +16,11 @@ type Props = {
   compact?: boolean;
 };
 
+type SubmissionResult = {
+  hash: string;
+  status: string;
+};
+
 type RunResponse =
   | {
       ok: true;
@@ -26,6 +31,7 @@ type RunResponse =
       minNdviBps: number;
       buyable: boolean;
       sampleGridSize: number;
+      oracleAddress: string;
       attestation: {
         observedAt: number;
         bboxHash: string;
@@ -38,6 +44,7 @@ type RunResponse =
         contractId: string;
         method: string;
       } | null;
+      submissionResult: SubmissionResult | null;
     }
   | { ok: false; error: string; details?: string; raw?: string };
 
@@ -79,13 +86,17 @@ export default function SatelliteVerificationPanel({
   const [submissionHash, setSubmissionHash] = useState<string | null>(null);
   const [preparedHash, setPreparedHash] = useState<string | null>(null);
   const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const [autoSubmitHash, setAutoSubmitHash] = useState<string | null>(null);
+  const [autoSubmitStatus, setAutoSubmitStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
   const busy = isRunning || isApplying;
   const canApply =
     result?.ok &&
-    Boolean(result.preparedRecordAttestation);
+    Boolean(result.preparedRecordAttestation) &&
+    !autoSubmitted;
 
   const fetchSummary = useCallback(
     async (rawBps: number) => {
@@ -118,6 +129,9 @@ export default function SatelliteVerificationPanel({
     setSubmissionHash(null);
     setPreparedHash(null);
     setSubmissionStatus(null);
+    setAutoSubmitted(false);
+    setAutoSubmitHash(null);
+    setAutoSubmitStatus(null);
     setShowDetails(false);
     try {
       const res = await fetch("/api/verification/run", {
@@ -129,6 +143,11 @@ export default function SatelliteVerificationPanel({
       setResult(json);
       if (json.ok) {
         setPreparedHash(json.preparedRecordAttestation?.hash ?? null);
+        if (json.submissionResult) {
+          setAutoSubmitted(true);
+          setAutoSubmitHash(json.submissionResult.hash);
+          setAutoSubmitStatus(json.submissionResult.status);
+        }
         void fetchSummary(json.ndviBps);
         onNdviResult?.(json.ndviBps);
       }
@@ -286,20 +305,39 @@ export default function SatelliteVerificationPanel({
             </div>
           )}
 
-          {/* On-chain attestation button */}
-          <button
-            onClick={() => applyBuyable()}
-            disabled={busy || !canApply}
-            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-farm-200 bg-white px-4 py-2 text-sm font-semibold text-farm-700 transition hover:bg-farm-50 active:scale-[0.98] disabled:opacity-40"
-          >
-            {isApplying && <Loader2 size={14} className="animate-spin" />}
-            {isApplying ? "Signing..." : "Record attestation on-chain"}
-          </button>
+          {/* Auto-submission result */}
+          {autoSubmitted ? (
+            <div className="mt-3 rounded-xl border border-farm-200 bg-farm-50 px-4 py-2.5">
+              <p className="text-xs font-medium text-farm-700">
+                Attestation recorded on-chain
+              </p>
+              <p className="mt-1 text-[11px] font-mono text-stone-500 break-all">
+                {autoSubmitHash}
+              </p>
+              {autoSubmitStatus && (
+                <p className="mt-0.5 text-[11px] text-stone-400">
+                  Status: {autoSubmitStatus}
+                </p>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* On-chain attestation button (fallback when no oracle key) */}
+              <button
+                onClick={() => applyBuyable()}
+                disabled={busy || !canApply}
+                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-farm-200 bg-white px-4 py-2 text-sm font-semibold text-farm-700 transition hover:bg-farm-50 active:scale-[0.98] disabled:opacity-40"
+              >
+                {isApplying && <Loader2 size={14} className="animate-spin" />}
+                {isApplying ? "Signing..." : "Record attestation on-chain"}
+              </button>
 
-          {!canApply && result?.oracleAddress && (
-            <p className="mt-2 text-center text-[11px] text-stone-400">
-              Connect your wallet to record attestation.
-            </p>
+              {!canApply && result?.oracleAddress && (
+                <p className="mt-2 text-center text-[11px] text-stone-400">
+                  Connect your wallet to record attestation.
+                </p>
+              )}
+            </>
           )}
         </div>
       )}

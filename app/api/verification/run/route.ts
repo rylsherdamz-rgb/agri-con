@@ -1,7 +1,10 @@
 export const runtime = "nodejs";
 
 import { createHash } from "node:crypto";
-import { prepareRecordSatelliteAttestationByOracle } from "@/lib/stellar/backend";
+import {
+  prepareRecordSatelliteAttestationByOracle,
+  submitRecordSatelliteAttestationByOracle,
+} from "@/lib/stellar/backend";
 
 type BBox = { west: number; south: number; east: number; north: number };
 type Body = {
@@ -21,6 +24,11 @@ type PreparedTx = {
   hash: string;
   contractId: string;
   method: string;
+};
+
+type SubmitResult = {
+  hash: string;
+  status: string;
 };
 
 type AttestationPayload = {
@@ -279,39 +287,79 @@ export async function POST(req: Request) {
       }),
     );
 
-    // Prepare a contract call to record the attestation and update buyability.
+    // Record attestation on-chain (server-side signing) or prepare XDR for frontend.
     // Skip on-chain attestation for preview mode (nftId === 0).
-    const adminAddress =
+    const oracleAddress =
+      process.env.ORACLE_ADDRESS ??
+      process.env.NEXT_PUBLIC_ORACLE_ADDRESS ??
       process.env.TREASURY_ADDRESS ??
       process.env.NEXT_PUBLIC_TREASURY_ADDRESS ??
       "";
+    const oracleSecretKey = process.env.ORACLE_SECRET_KEY ?? "";
+
     let prepared: PreparedTx | null = null;
-    if (!isPreview && adminAddress) {
-      try {
-        prepared = (await prepareRecordSatelliteAttestationByOracle({
-          oracle: adminAddress,
-          nftId: body.nftId,
-          observedAt,
-          ndviBps,
-          minNdviBps,
-          buyable,
-          bboxHash,
-          reportHash,
-          source,
-        })) as PreparedTx;
-      } catch (prepareError) {
-        const details =
-          prepareError instanceof Error
-            ? prepareError.message
-            : JSON.stringify(prepareError);
-        return Response.json(
-          {
-            ok: false,
-            error: "Failed to prepare satellite attestation transaction",
-            details,
-          },
-          { status: 502 },
-        );
+    let submissionResult: SubmitResult | null = null;
+
+    if (!isPreview && oracleAddress) {
+      if (oracleSecretKey) {
+        try {
+          const result = await submitRecordSatelliteAttestationByOracle({
+            oracle: oracleAddress,
+            oracleSecretKey,
+            nftId: body.nftId,
+            observedAt,
+            ndviBps,
+            minNdviBps,
+            buyable,
+            bboxHash,
+            reportHash,
+            source,
+          });
+          submissionResult = {
+            hash: result.hash ?? "",
+            status: result.status ?? "UNKNOWN",
+          };
+        } catch (submitError) {
+          const details =
+            submitError instanceof Error
+              ? submitError.message
+              : String(submitError);
+          return Response.json(
+            {
+              ok: false,
+              error: "Failed to submit satellite attestation transaction",
+              details,
+            },
+            { status: 502 },
+          );
+        }
+      } else {
+        try {
+          prepared = (await prepareRecordSatelliteAttestationByOracle({
+            oracle: oracleAddress,
+            nftId: body.nftId,
+            observedAt,
+            ndviBps,
+            minNdviBps,
+            buyable,
+            bboxHash,
+            reportHash,
+            source,
+          })) as PreparedTx;
+        } catch (prepareError) {
+          const details =
+            prepareError instanceof Error
+              ? prepareError.message
+              : JSON.stringify(prepareError);
+          return Response.json(
+            {
+              ok: false,
+              error: "Failed to prepare satellite attestation transaction",
+              details,
+            },
+            { status: 502 },
+          );
+        }
       }
     }
 
@@ -327,6 +375,7 @@ export async function POST(req: Request) {
       buyable,
       sampleGridSize,
       isPreview,
+      oracleAddress,
       attestation: {
         observedAt,
         bboxHash,
@@ -334,6 +383,7 @@ export async function POST(req: Request) {
         source,
       } satisfies AttestationPayload,
       preparedRecordAttestation: prepared,
+      submissionResult,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "verification run failed";
