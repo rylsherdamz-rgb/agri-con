@@ -37,48 +37,45 @@ export default function NavigationBar() {
   const isActive = (href: string) => pathname === href || (href !== "/" && pathname.startsWith(href));
 
   return (
-    <header className="sticky top-0 z-30 border-b border-farm-200/40 bg-white/85 backdrop-blur-xl supports-[backdrop-filter]:bg-white/70">
+    <header className="sticky top-0 z-30 border-b border-farm-200/40 bg-white/80 shadow-[0_1px_0_rgba(20,83,45,0.04)] backdrop-blur-xl supports-[backdrop-filter]:bg-white/65">
       <div className="mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-2.5 sm:px-6">
         {/* Brand */}
-        <Link href="/" className="flex shrink-0 items-center gap-2.5 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-farm-900 text-white shadow-sm shadow-farm-900/20 transition group-hover:shadow-md group-hover:shadow-farm-900/30">
+        <Link href="/" className="group flex shrink-0 items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-farm-700 to-farm-900 text-white shadow-sm shadow-farm-900/25 ring-1 ring-farm-900/10 transition duration-200 group-hover:shadow-md group-hover:shadow-farm-900/30 group-hover:-translate-y-0.5">
             <Leaf size={18} />
           </div>
-          <span className="hidden text-base font-bold tracking-tight text-stone-900 sm:block">
-            Agri-Block
+          <span className="hidden items-center gap-2 sm:flex">
+            <span className="text-base font-bold tracking-tight text-stone-900">Agri-Block</span>
+            <span className="rounded-full bg-farm-50 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-farm-700 ring-1 ring-farm-200">
+              Testnet
+            </span>
           </span>
         </Link>
 
         {/* Desktop nav */}
         <nav className="hidden flex-1 items-center justify-center gap-0.5 lg:flex">
-          {/* Home */}
-          <NavLink href="/" active={isActive("/")}>
-            <Home size={15} />
+          <NavLink href="/" active={isActive("/")} icon={Home}>
             Home
           </NavLink>
 
-          {/* Divider */}
           <Divider />
 
-          {/* Farmer tools */}
-          <span className="mx-1 text-[10px] font-bold uppercase tracking-widest text-stone-300 select-none">
+          <span className="mx-1 select-none text-[10px] font-bold uppercase tracking-widest text-stone-300">
             Grower
           </span>
-          {FARMER_LINKS.map(({ label, href, icon: Icon }) => (
-            <NavLink key={href} href={href} active={isActive(href)}>
+          {FARMER_LINKS.map(({ label, href, icon }) => (
+            <NavLink key={href} href={href} active={isActive(href)} icon={icon}>
               {label}
             </NavLink>
           ))}
 
-          {/* Divider */}
           <Divider />
 
-          {/* Buyer tools */}
-          <span className="mx-1 text-[10px] font-bold uppercase tracking-widest text-stone-300 select-none">
+          <span className="mx-1 select-none text-[10px] font-bold uppercase tracking-widest text-stone-300">
             Market
           </span>
-          {BUYER_LINKS.map(({ label, href, icon: Icon }) => (
-            <NavLink key={href} href={href} active={isActive(href)}>
+          {BUYER_LINKS.map(({ label, href, icon }) => (
+            <NavLink key={href} href={href} active={isActive(href)} icon={icon}>
               {label}
             </NavLink>
           ))}
@@ -89,8 +86,9 @@ export default function NavigationBar() {
           {/* Mobile toggle */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="rounded-lg p-2 text-stone-600 hover:bg-stone-100 lg:hidden"
+            className="rounded-lg p-2 text-stone-600 transition hover:bg-stone-100 active:scale-95 lg:hidden"
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
@@ -160,22 +158,36 @@ function Divider() {
 function NavLink({
   href,
   active,
+  icon: Icon,
   children,
 }: {
   href: string;
   active: boolean;
+  icon?: React.ElementType;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
-      className={`relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+      aria-current={active ? "page" : undefined}
+      className={`group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-150 ${
         active
-          ? "bg-farm-50 text-farm-800"
+          ? "bg-farm-50 text-farm-800 ring-1 ring-farm-200/70"
           : "text-stone-500 hover:bg-stone-50 hover:text-stone-800"
       }`}
     >
+      {Icon ? (
+        <Icon
+          size={15}
+          className={active ? "text-farm-600" : "text-stone-400 transition-colors group-hover:text-farm-600"}
+        />
+      ) : null}
       {children}
+      <span
+        className={`pointer-events-none absolute -bottom-[7px] left-1/2 h-0.5 -translate-x-1/2 rounded-full bg-farm-600 transition-all duration-200 ${
+          active ? "w-5 opacity-100" : "w-0 opacity-0 group-hover:w-3 group-hover:opacity-60"
+        }`}
+      />
     </Link>
   );
 }
