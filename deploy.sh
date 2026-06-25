@@ -9,6 +9,7 @@ IDENTITY="${IDENTITY:-richie}"       # stellar keys identity with admin secret
 ORACLE_ADDRESS="${ORACLE_ADDRESS:-GAQTXZLBZ2MTU2GWFEDHXBMJ7BMUZFXTW37ZNZF2IQYWQFPWPHTJWNA3}"
 WASM_DIR="$SCRIPT_DIR/contracts/target/wasm32v1-none/release"
 WASM="$WASM_DIR/agri_con.wasm"
+BUILD_TARGET="wasm32v1-none"
 
 # USDC on Stellar Testnet
 USDC="CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
@@ -32,8 +33,8 @@ echo ""
 
 # ── STEP 0: Build WASM ──
 echo ">>> [0/6] Building contract WASM..."
-cd "$SCRIPT_DIR/contracts/agri_con"
-cargo build --target wasm32-unknown-unknown --release 2>&1
+cd "$SCRIPT_DIR/contracts"
+cargo build --target "$BUILD_TARGET" --release 2>&1
 cd "$SCRIPT_DIR"
 echo "  WASM: $(wc -c < "$WASM") bytes"
 echo ""
