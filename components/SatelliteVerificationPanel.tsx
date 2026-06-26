@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { CheckCircle, ChevronDown, ChevronUp, Loader2, XCircle } from "lucide-react";
+import { CheckCircle, ChevronDown, ChevronUp, Loader2, XCircle, Wallet } from "lucide-react";
 
 import { useWallet } from "@/components/stellar/wallet-context";
 import { CONTRACT_IDS } from "@/lib/stellar/config";
+import { STELLAR_RPC_URL, STELLAR_HORIZON_URL, STELLAR_NETWORK_PASSPHRASE } from "@/lib/stellar/config";
 
 type Props = {
   nftId: number;
@@ -81,8 +82,13 @@ export default function SatelliteVerificationPanel({
   const [autoSubmitStatus, setAutoSubmitStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
+  const [paymentRequired, setPaymentRequired] = useState<{
+    amount: string;
+    destination: string;
+    memo?: string;
+  } | null>(null);
 
-  const busy = isRunning;
+  const busy = isRunning || paymentRequired !== null;
 
   const fetchSummary = useCallback(
     async (rawBps: number) => {
@@ -116,12 +122,20 @@ export default function SatelliteVerificationPanel({
     setAutoSubmitHash(null);
     setAutoSubmitStatus(null);
     setShowDetails(false);
+    setPaymentRequired(null);
     try {
       const res = await fetch("/api/verification/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ nftId, bbox, minNdviBps, temporalExtent, sampleGridSize }),
       });
+
+      if (res.status === 402) {
+        const body = await res.json() as { amount: string; destination: string; memo?: string };
+        setPaymentRequired({ amount: body.amount, destination: body.destination, memo: body.memo });
+        return;
+      }
+
       const json = (await res.json()) as RunResponse;
       setResult(json);
       if (json.ok) {
@@ -140,6 +154,69 @@ export default function SatelliteVerificationPanel({
     }
   }
 
+  async function payAndRetry() {
+    if (!paymentRequired || !address) return;
+    setIsRunning(true);
+    setPaymentRequired(null);
+    try {
+      const { Horizon, TransactionBuilder, BASE_FEE, TimeoutInfinite, Keypair, Operation } = await import("@stellar/stellar-sdk");
+      const { StellarWalletsKit } = await import("@creit.tech/stellar-wallets-kit");
+
+      const server = new Horizon.Server(STELLAR_HORIZON_URL, { allowHttp: STELLAR_HORIZON_URL.startsWith("http://") });
+      const account = await server.loadAccount(address);
+      const amount = parseFloat(paymentRequired.amount).toFixed(7);
+
+      const tx = new TransactionBuilder(account, {
+        fee: BASE_FEE,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      })
+        .addOperation(Operation.payment({
+          destination: paymentRequired.destination,
+          asset: Horizon.Asset.native(),
+          amount,
+        }))
+        .setTimeout(30)
+        .build();
+
+      const txXdr = tx.toXDR();
+      const { signedTxXdr } = await StellarWalletsKit.signTransaction(txXdr, {
+        address,
+        networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+      });
+
+      const signedTx = TransactionBuilder.fromXDR(signedTxXdr, STELLAR_NETWORK_PASSPHRASE);
+      const submitRes = await server.submitTransaction(signedTx);
+      const txHash = submitRes.hash;
+
+      const retryRes = await fetch("/api/verification/run", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-stellar-payment": txHash },
+        body: JSON.stringify({ nftId, bbox, minNdviBps, temporalExtent, sampleGridSize }),
+      });
+
+      if (retryRes.status === 402) {
+        setError("Payment verification failed. Try again.");
+        return;
+      }
+
+      const json = (await retryRes.json()) as RunResponse;
+      setResult(json);
+      if (json.ok) {
+        if (json.submissionResult) {
+          setAutoSubmitted(true);
+          setAutoSubmitHash(json.submissionResult.hash);
+          setAutoSubmitStatus(json.submissionResult.status);
+        }
+        void fetchSummary(json.ndviBps);
+        onNdviResult?.(json.ndviBps);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Payment failed");
+    } finally {
+      setIsRunning(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       {/* --- Run button --- */}
@@ -151,6 +228,25 @@ export default function SatelliteVerificationPanel({
         {isRunning && <Loader2 size={15} className="animate-spin" />}
         {isRunning ? "Running NDVI check..." : "Run NDVI check"}
       </button>
+
+      {/* --- x402 payment gate --- */}
+      {paymentRequired && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center">
+          <Wallet size={20} className="mx-auto mb-2 text-amber-600" />
+          <p className="text-sm font-semibold text-amber-800">Payment Required</p>
+          <p className="mt-1 text-xs text-amber-700">
+            Pay <span className="font-bold">{paymentRequired.amount} XLM</span> to run NDVI verification
+          </p>
+          <button
+            onClick={payAndRetry}
+            disabled={!address}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-50"
+          >
+            <Wallet size={14} />
+            {address ? "Pay & Verify" : "Connect Wallet First"}
+          </button>
+        </div>
+      )}
 
       {/* --- Error --- */}
       {error && (

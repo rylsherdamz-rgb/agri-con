@@ -26,7 +26,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "stellar-agent-kit": "^1.0.6",
-    "three": "^0.184.0"
+    "three": "^0.184.0",
+    "x402-stellar-sdk": "^1.0.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

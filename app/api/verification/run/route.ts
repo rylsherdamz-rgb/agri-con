@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { createHash } from "node:crypto";
 import { submitRecordSatelliteAttestation } from "@/lib/stellar/backend";
+import { createPaymentRequiredResponse, processPaymentMiddleware } from "x402-stellar-sdk";
 
 type BBox = { west: number; south: number; east: number; north: number };
 type Body = {
@@ -175,6 +176,32 @@ export async function POST(req: Request) {
     }
 
     const isPreview = body.nftId === 0;
+
+    // ── x402 payment gate ──
+    if (!isPreview) {
+      const paymentHeader = req.headers.get("x-stellar-payment") ?? "";
+      const destination = process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_TREASURY_ADDRESS ?? "";
+      const price = process.env.X402_PRICE ?? "0.1";
+
+      if (!paymentHeader) {
+        const paymentReq = createPaymentRequiredResponse({
+          price,
+          assetCode: "XLM",
+          network: "testnet",
+          destination,
+          memo: `ndvi-${body.nftId}`,
+        });
+        return Response.json(paymentReq.body, { status: 402, headers: new Headers(paymentReq.headers) });
+      }
+
+      const verified = await processPaymentMiddleware(
+        { "x-stellar-payment": paymentHeader },
+        { price, assetCode: "XLM", network: "testnet", destination, memo: `ndvi-${body.nftId}` },
+      );
+      if (!verified.allowed) {
+        return Response.json({ ok: false, error: "Payment verification failed" }, { status: 402 });
+      }
+    }
 
     const openeoSh = trimSlash(
       process.env.OPENEO_SH_BASE_URL ?? "https://openeosh.dataspace.copernicus.eu",
