@@ -180,7 +180,7 @@ export async function POST(req: Request) {
     // ── x402 payment gate ──
     if (!isPreview) {
       const paymentHeader = req.headers.get("x-stellar-payment") ?? "";
-      const destination = process.env.TREASURY_ADDRESS ?? process.env.NEXT_PUBLIC_TREASURY_ADDRESS ?? "";
+      const destination = (process.env.TREASURY_ADDRESS || process.env.NEXT_PUBLIC_TREASURY_ADDRESS) ?? "";
       const price = process.env.X402_PRICE ?? "0.1";
 
       if (!paymentHeader) {
