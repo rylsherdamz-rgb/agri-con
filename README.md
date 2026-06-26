@@ -2,15 +2,21 @@
 
 Agricultural forward contracts on Stellar with crop NFTs, escrow settlement, satellite-gated buyability, and disaster aid.
 
-## Problem Statement
+## Project Description
 
-Smallholder farmers lack access to fair-price forward contracts. Buyers (processors, retailers) cannot verify crop health before harvest, and there is no trustless settlement mechanism. Current solutions rely on centralized intermediaries, manual inspections, and paper contracts — leading to disputes, payment delays, and limited market access for farmers.
+Agri-Block is a decentralized marketplace for agricultural forward contracts built on Stellar. Farmers mint crop NFTs representing real parcels, satellite NDVI verification gates buyability, and XLM escrow protects both parties through delivery. Built with Soroban smart contracts, openEO satellite data, and an AI assistant for crop guidance.
 
-**Agri-Block solves this with:**
-- On-chain crop NFTs that represent real-world agricultural parcels
-- Satellite NDVI verification to gate buyability (only healthy crops are tradeable)
-- Escrow-based XLM payments that protect both farmer and buyer
-- Disaster aid for crop loss events
+## Project Vision
+
+Democratize access to formal agricultural commodity markets for smallholder farmers worldwide by replacing trust-dependent paper contracts with verifiable, on-chain infrastructure — where crop health is provable via satellite, payments are escrowed programmatically, and every transaction leaves an immutable audit trail.
+
+## Key Features
+
+- **Crop NFTs** — Farmers mint NFTs representing crop parcels with metadata (crop type, quantity, price, region)
+- **Satellite Verification** — NDVI analysis via Copernicus Sentinel-2 (openEO) gated by **X402 micro-payment** (0.1 XLM). All farmers auto-verified on signup.
+- **XLM Escrow** — Buyers pay XLM; 20% upfront to farmer, 70% held in escrow until delivery, 10% to disaster treasury
+- **Disaster Aid** — Farmers file claims for crop loss; on-chain proof of damage
+- **AI Assistant** — NVIDIA NIM-powered chat for agricultural guidance
 
 ## How It Works
 
@@ -22,8 +28,6 @@ Farmer draws parcel on map → Mints crop NFT → NDVI check via satellite → L
   Escrow released to farmer OR refunded to buyer (disaster/fraud)
 ```
 
-### Flow Details
-
 1. **Farm** — Farmer signs up (auto-verified), draws their parcel on the interactive map
 2. **Mint** — Fills crop details (type, quantity, price, harvest date) and mints a crop NFT on Stellar
 3. **Verify** — Runs NDVI analysis via Copernicus Sentinel-2 (openEO) — gated by an X402 micro-payment (0.1 XLM) to cover API costs. Admin records attestation on-chain; if NDVI passes threshold, listing becomes buyable
@@ -32,15 +36,7 @@ Farmer draws parcel on map → Mints crop NFT → NDVI check via satellite → L
 6. **Deliver** — Farmer ships the harvest; buyer confirms delivery
 7. **Settle** — Escrow released to farmer on successful delivery; refunded to buyer if disaster or fraud
 
-## Features
-
-- **Crop NFTs** — Farmers mint NFTs representing crop parcels with metadata (crop type, quantity, price, region)
-- **Satellite Verification** — NDVI analysis via Copernicus Sentinel-2 (openEO) gated by **X402 micro-payment** (0.1 XLM). All farmers auto-verified on signup.
-- **XLM Escrow** — Buyers pay XLM; 20% upfront to farmer, 70% held in escrow until delivery, 10% to disaster treasury
-- **Disaster Aid** — Farmers file claims for crop loss; on-chain proof of damage
-- **AI Assistant** — NVIDIA NIM-powered chat for agricultural guidance
-
-## Smart Contract
+## Contract Details
 
 Deployed on Stellar Testnet.
 
@@ -75,6 +71,15 @@ Deployed on Stellar Testnet.
 | `get_admin` | Get contract admin address |
 | `get_treasury_pool_balance` | Get treasury pool balance |
 | `get_next_nft_id` | Get the next NFT ID to be minted (used for full discovery) |
+
+## Future Scope
+
+- **Multi-chain expansion** — Port contracts to Stellar mainnet and explore other Soroban-enabled networks
+- **Automated attestation** — Fully automated NDVI pipeline that triggers on mint without admin intervention
+- **Mobile app** — React Native client for farmers to mint and manage listings from the field
+- **Insurance pools** — On-chain crop insurance funded by treasury pool deposits
+- **Carbon credits** — Integrate with carbon credit marketplaces using verified sustainable farming data
+- **DAO governance** — Community-driven parameter updates (fee splits, NDVI thresholds, oracle set)
 
 ## Tech Stack
 
