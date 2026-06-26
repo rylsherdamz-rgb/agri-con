@@ -21,6 +21,7 @@ import {
 const FARMER_LINKS = [
   { label: "Explore", href: "/explore", icon: Map },
   { label: "My Listings", href: "/mylistings", icon: List },
+  { label: "Verify", href: "/verify", icon: ShieldAlert },
   { label: "Aid", href: "/aid", icon: ShieldAlert },
   { label: "Profile", href: "/profile", icon: User },
 ];

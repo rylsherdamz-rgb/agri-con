@@ -95,6 +95,7 @@ export default function SatelliteVerificationPanel({
   const busy = isRunning || isApplying;
   const canApply =
     result?.ok &&
+    result.buyable &&
     Boolean(result.preparedRecordAttestation) &&
     !autoSubmitted;
 
@@ -332,7 +333,12 @@ export default function SatelliteVerificationPanel({
                 {isApplying ? "Signing..." : "Record attestation on-chain"}
               </button>
 
-              {!canApply && result?.oracleAddress && (
+              {!result.buyable && (
+                <p className="mt-2 text-center text-[11px] text-amber-600">
+                  NDVI below threshold ({result.minNdviBps} bps) — attestation cannot be recorded.
+                </p>
+              )}
+              {!canApply && result?.oracleAddress && result.buyable && (
                 <p className="mt-2 text-center text-[11px] text-stone-400">
                   Connect your wallet to record attestation.
                 </p>
