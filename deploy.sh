@@ -148,17 +148,21 @@ echo ""
 echo "  WASM upload cost:   ${UPLOAD_XLM} XLM"
 echo "  Deploy cost:        ${DEPLOY_XLM} XLM"
 echo ""
-echo "  Add to .env.local:"
-echo "  NEXT_PUBLIC_AGRI_CON_CONTRACT_ID=\"$CONTRACT_ID\""
-echo "  NEXT_PUBLIC_TREASURY_ADDRESS=\"$ADMIN_ADDR\""
-echo "  ADMIN_SECRET_KEY=\"<admin-secret>\""
 echo ""
-echo "  Then update Vercel env vars:"
-echo "  vercel env add NEXT_PUBLIC_AGRI_CON_CONTRACT_ID production"
+echo "  Auto-updating .env.example and .env.local..."
+
+for f in "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env.local"; do
+  if [ -f "$f" ]; then
+    sed -i "s|NEXT_PUBLIC_AGRI_CON_CONTRACT_ID=.*|NEXT_PUBLIC_AGRI_CON_CONTRACT_ID=\"$CONTRACT_ID\"|" "$f"
+    sed -i "s|NEXT_PUBLIC_CROP_NFT_CONTRACT_ID=.*|NEXT_PUBLIC_CROP_NFT_CONTRACT_ID=\"$CONTRACT_ID\"|" "$f"
+    sed -i "s|NEXT_PUBLIC_ESCROW_CONTRACT_ID=.*|NEXT_PUBLIC_ESCROW_CONTRACT_ID=\"$CONTRACT_ID\"|" "$f"
+    sed -i "s|NEXT_PUBLIC_VERIFICATION_CONTRACT_ID=.*|NEXT_PUBLIC_VERIFICATION_CONTRACT_ID=\"$CONTRACT_ID\"|" "$f"
+    echo "  Updated $(basename "$f")"
+  fi
+done
+
+echo ""
+echo "  To deploy to Vercel:  vercel env add NEXT_PUBLIC_AGRI_CON_CONTRACT_ID production"
 echo "  (paste $CONTRACT_ID)"
 echo ""
-echo "  MAINNET (if network changed above):"
-echo "    Upload:  ~36.9 XLM"
-echo "    Deploy:  ~0.0008 XLM"
-echo "    Mint:    ~0.00012 XLM"
 echo "════════════════════════════════════════════"
