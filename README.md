@@ -22,6 +22,12 @@ Deployed on Stellar Testnet.
 
 **Explorer:** https://stellar.expert/explorer/testnet/contract/CC7CCIMTME2KBV7RRUTXAW6XTPE2FBRYLV3CLKF2YQNU5NHX5NYH37TC
 
+![Contract on Stellar Expert](public/contract-screenshot.png)
+*Contract page on Stellar Expert explorer*
+
+![Admin Account on Stellar Expert](public/account-screenshot.png)
+*Admin account on Stellar Expert explorer*
+
 ### Contract Methods
 
 | Method | Description |
