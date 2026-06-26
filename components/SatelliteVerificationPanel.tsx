@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { CheckCircle, ChevronDown, ChevronUp, Loader2, XCircle } from "lucide-react";
 
 import { useWallet } from "@/components/stellar/wallet-context";
+import { CONTRACT_IDS } from "@/lib/stellar/config";
 
 type Props = {
   nftId: number;
@@ -256,9 +257,24 @@ export default function SatelliteVerificationPanel({
               <p className="text-xs font-medium text-farm-700">
                 Attestation recorded on-chain
               </p>
-              <p className="mt-1 text-[11px] font-mono text-stone-500 break-all">
-                {autoSubmitHash}
-              </p>
+              <div className="mt-1 flex flex-wrap gap-2">
+                <a
+                  href={`https://stellar.expert/explorer/testnet/tx/${autoSubmitHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-mono text-farm-600 underline underline-offset-2 hover:text-farm-800"
+                >
+                  View Tx →
+                </a>
+                <a
+                  href={`https://stellar.expert/explorer/testnet/contract/${CONTRACT_IDS.agriCon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] font-mono text-farm-600 underline underline-offset-2 hover:text-farm-800"
+                >
+                  View Contract →
+                </a>
+              </div>
             </div>
           )}
         </div>
