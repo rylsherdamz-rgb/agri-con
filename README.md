@@ -2,6 +2,36 @@
 
 Agricultural forward contracts on Stellar with crop NFTs, escrow settlement, satellite-gated buyability, and disaster aid.
 
+## Problem Statement
+
+Smallholder farmers lack access to fair-price forward contracts. Buyers (processors, retailers) cannot verify crop health before harvest, and there is no trustless settlement mechanism. Current solutions rely on centralized intermediaries, manual inspections, and paper contracts — leading to disputes, payment delays, and limited market access for farmers.
+
+**Agri-Block solves this with:**
+- On-chain crop NFTs that represent real-world agricultural parcels
+- Satellite NDVI verification to gate buyability (only healthy crops are tradeable)
+- Escrow-based XLM payments that protect both farmer and buyer
+- Disaster aid for crop loss events
+
+## How It Works
+
+```
+Farmer draws parcel on map → Mints crop NFT → NDVI check via satellite → Listing becomes buyable
+       ↓                                                                           ↓
+  Buyer purchases with XLM (20% upfront, 70% escrow, 10% treasury)          Delivery verified
+       ↓                                                                           ↓
+  Escrow released to farmer OR refunded to buyer (disaster/fraud)
+```
+
+### Flow Details
+
+1. **Farm** — Farmer signs up (auto-verified), draws their parcel on the interactive map
+2. **Mint** — Fills crop details (type, quantity, price, harvest date) and mints a crop NFT on Stellar
+3. **Verify** — Runs NDVI analysis via Copernicus Sentinel-2 (openEO) — gated by an X402 micro-payment (0.1 XLM) to cover API costs. Admin records attestation on-chain; if NDVI passes threshold, listing becomes buyable
+4. **Market** — Listing appears in the marketplace for buyers to browse
+5. **Buy** — Buyer purchases with XLM. 20% goes to farmer upfront, 70% held in escrow, 10% to disaster treasury pool
+6. **Deliver** — Farmer ships the harvest; buyer confirms delivery
+7. **Settle** — Escrow released to farmer on successful delivery; refunded to buyer if disaster or fraud
+
 ## Features
 
 - **Crop NFTs** — Farmers mint NFTs representing crop parcels with metadata (crop type, quantity, price, region)
