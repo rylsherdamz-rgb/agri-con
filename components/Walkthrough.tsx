@@ -42,7 +42,7 @@ const STEPS = [
     title: "Mint Your Crop NFT",
     description: "If the NDVI passes the threshold, mint your crop as an NFT. It appears instantly in the marketplace for buyers to discover.",
     icon: Sprout,
-    action: "Click 'Mint Crop NFT' after satellite verification. Set your price in USDC and confirm with your wallet.",
+    action: "Click 'Mint Crop NFT' after satellite verification. Set your price in XLM and confirm with your wallet.",
   },
   {
     role: "buyer",
@@ -53,7 +53,7 @@ const STEPS = [
   },
   {
     role: "buyer",
-    title: "Purchase with USDC",
+    title: "Purchase with XLM",
     description: "Your payment is split automatically: 70% held in escrow until delivery, 20% goes to the farmer upfront, 10% to the disaster treasury pool.",
     icon: TrendingUp,
     action: "Click any crop card, review the AI NDVI analysis, then click 'Purchase'. Sign with your wallet.",

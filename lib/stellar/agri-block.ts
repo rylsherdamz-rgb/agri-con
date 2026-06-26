@@ -22,7 +22,7 @@ export type MintCropInput = {
   farmer: string;
   cropType: string;
   quantityKg: number;
-  priceUsdc: string;
+  priceXlm: string;
   harvestDate: string;
   parcelName: string;
   parcelBboxHash: string;
@@ -112,13 +112,13 @@ function getContractId(contract: ContractKey) {
   return value;
 }
 
-function parseUsdcAmount(amount: string) {
+function parseTokenAmount(amount: string) {
   return toStroops(amount, 7);
 }
 
 /**
  * Convert a human-readable decimal amount string into integer base units
- * (e.g. USDC with 7 decimals: "2500.50" -> 25005000000n). Replaces the
+ * (e.g. XLM with 7 decimals: "2500.50" -> 25005000000n). Replaces the
  * removed `Soroban.parseTokenAmount` helper from older SDK versions.
  */
 function toStroops(amount: string, decimals: number): bigint {
@@ -209,7 +209,7 @@ export async function submitSignedXdr(signedXdr: string): Promise<SubmitSignedXd
 
 export async function mintCropNft(input: MintCropInput): Promise<TransactionPreview> {
   const contractId = getContractId("agriCon");
-  const price = parseUsdcAmount(input.priceUsdc);
+  const price = parseTokenAmount(input.priceXlm);
   const prepared = await buildPreparedContractTransaction(
     input.farmer,
     contractId,
@@ -301,8 +301,8 @@ export async function verifyDelivery(input: VerifyInput): Promise<TransactionPre
       nativeToScVal(input.nftId, { type: "u64" }),
       nativeToScVal(input.status, { type: "string" }),
       nativeToScVal(input.notesHash, { type: "string" }),
-      nativeToScVal(parseUsdcAmount(input.refundAmount), { type: "i128" }),
-      nativeToScVal(parseUsdcAmount(input.treasuryCompensation), {
+      nativeToScVal(parseTokenAmount(input.refundAmount), { type: "i128" }),
+      nativeToScVal(parseTokenAmount(input.treasuryCompensation), {
         type: "i128",
       }),
     ],

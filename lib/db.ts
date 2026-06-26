@@ -30,13 +30,13 @@ export async function listFarmers() {
 }
 
 export async function upsertListing(data: {
-  nftId: number; cropType?: string; quantityKg?: number; priceUsdc?: number;
+  nftId: number; cropType?: string; quantityKg?: number; priceXlm?: number;
   farmerId: string; parcelName?: string; region?: string; buyable?: boolean;
   ndviBps?: number; minNdviBps?: number; areaHa?: number; totalYieldKg?: number; status?: string;
 }) {
   const { error } = await getDb().from("listings").upsert({
     nft_id: data.nftId, crop_type: data.cropType ?? null, quantity_kg: data.quantityKg ?? null,
-    price_usdc: data.priceUsdc ?? null, farmer_id: data.farmerId,
+    price_usdc: data.priceXlm ?? null, farmer_id: data.farmerId,
     parcel_name: data.parcelName ?? null, region: data.region ?? null,
     buyable: data.buyable ?? false, ndvi_bps: data.ndviBps ?? null,
     min_ndvi_bps: data.minNdviBps ?? null, area_ha: data.areaHa ?? null,
@@ -60,11 +60,11 @@ export async function getListings(filters: {
 }
 
 export async function createOrder(data: {
-  listingId: number; buyerAddress: string; amountUsdc?: number; txHash?: string; status?: string;
+  listingId: number; buyerAddress: string; amountXlm?: number; txHash?: string; status?: string;
 }) {
   const { error } = await getDb().from("orders").insert({
     listing_id: data.listingId, buyer_address: data.buyerAddress,
-    amount_usdc: data.amountUsdc ?? 0, tx_hash: data.txHash ?? null,
+    amount_usdc: data.amountXlm ?? 0, tx_hash: data.txHash ?? null,
     status: data.status ?? "escrow",
   });
   if (error) throw error;

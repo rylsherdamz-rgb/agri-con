@@ -21,28 +21,23 @@ type SubmissionResult = {
 };
 
 type RunResponse =
-  | {
+  |     {
       ok: true;
       nftId: number;
+      bbox: { west: number; south: number; east: number; north: number };
       temporalExtent: { start: string; end: string };
       ndviMean: number;
       ndviBps: number;
       minNdviBps: number;
       buyable: boolean;
       sampleGridSize: number;
-      oracleAddress: string;
+      isPreview: boolean;
       attestation: {
         observedAt: number;
         bboxHash: string;
         reportHash: string;
         source: string;
       };
-      preparedRecordAttestation: {
-        xdr: string;
-        hash: string;
-        contractId: string;
-        method: string;
-      } | null;
       submissionResult: SubmissionResult | null;
     }
   | { ok: false; error: string; details?: string; raw?: string };
@@ -253,10 +248,10 @@ export default function SatelliteVerificationPanel({
                 <span className="font-mono">{result.attestation.source}</span>
               </div>
               <div className="flex justify-between gap-2">
-                <span>Oracle</span>
+                <span>Admin</span>
                 <span className="font-mono">
-                  {result.oracleAddress
-                    ? shortAddress(result.oracleAddress)
+                  {result.adminAddress
+                    ? shortAddress(result.adminAddress)
                     : "missing"}
                 </span>
               </div>

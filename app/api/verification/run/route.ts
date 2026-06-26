@@ -1,10 +1,7 @@
 export const runtime = "nodejs";
 
 import { createHash } from "node:crypto";
-import {
-  prepareRecordSatelliteAttestationByOracle,
-  submitRecordSatelliteAttestationByOracle,
-} from "@/lib/stellar/backend";
+import { submitRecordSatelliteAttestation } from "@/lib/stellar/backend";
 
 type BBox = { west: number; south: number; east: number; north: number };
 type Body = {
@@ -281,85 +278,46 @@ export async function POST(req: Request) {
         sampleGridSize,
         ndviBps,
         minNdviBps,
-        buyable,
         observedAt,
         source,
       }),
     );
 
-    // Record attestation on-chain (server-side signing) or prepare XDR for frontend.
+    // Record attestation on-chain (server-side signing via admin key).
     // Skip on-chain attestation for preview mode (nftId === 0).
-    const oracleAddress =
-      process.env.ORACLE_ADDRESS ??
-      process.env.NEXT_PUBLIC_ORACLE_ADDRESS ??
-      process.env.TREASURY_ADDRESS ??
-      process.env.NEXT_PUBLIC_TREASURY_ADDRESS ??
-      "";
-    const oracleSecretKey = process.env.ORACLE_SECRET_KEY ?? "";
+    const adminSecretKey = process.env.ADMIN_SECRET_KEY ?? "";
 
-    let prepared: PreparedTx | null = null;
     let submissionResult: SubmitResult | null = null;
 
-    if (!isPreview && oracleAddress) {
-      if (oracleSecretKey) {
-        try {
-          const result = await submitRecordSatelliteAttestationByOracle({
-            oracle: oracleAddress,
-            oracleSecretKey,
-            nftId: body.nftId,
-            observedAt,
-            ndviBps,
-            minNdviBps,
-            buyable,
-            bboxHash,
-            reportHash,
-            source,
-          });
-          submissionResult = {
-            hash: result.hash ?? "",
-            status: result.status ?? "UNKNOWN",
-          };
-        } catch (submitError) {
-          const details =
-            submitError instanceof Error
-              ? submitError.message
-              : String(submitError);
-          return Response.json(
-            {
-              ok: false,
-              error: "Failed to submit satellite attestation transaction",
-              details,
-            },
-            { status: 502 },
-          );
-        }
-      } else {
-        try {
-          prepared = (await prepareRecordSatelliteAttestationByOracle({
-            oracle: oracleAddress,
-            nftId: body.nftId,
-            observedAt,
-            ndviBps,
-            minNdviBps,
-            buyable,
-            bboxHash,
-            reportHash,
-            source,
-          })) as PreparedTx;
-        } catch (prepareError) {
-          const details =
-            prepareError instanceof Error
-              ? prepareError.message
-              : JSON.stringify(prepareError);
-          return Response.json(
-            {
-              ok: false,
-              error: "Failed to prepare satellite attestation transaction",
-              details,
-            },
-            { status: 502 },
-          );
-        }
+    if (!isPreview && adminSecretKey) {
+      try {
+        const result = await submitRecordSatelliteAttestation({
+          adminSecretKey,
+          nftId: body.nftId,
+          observedAt,
+          ndviBps,
+          minNdviBps,
+          bboxHash,
+          reportHash,
+          source,
+        });
+        submissionResult = {
+          hash: result.hash ?? "",
+          status: result.status ?? "UNKNOWN",
+        };
+      } catch (submitError) {
+        const details =
+          submitError instanceof Error
+            ? submitError.message
+            : String(submitError);
+        return Response.json(
+          {
+            ok: false,
+            error: "Failed to submit satellite attestation transaction",
+            details,
+          },
+          { status: 502 },
+        );
       }
     }
 
@@ -375,14 +333,12 @@ export async function POST(req: Request) {
       buyable,
       sampleGridSize,
       isPreview,
-      oracleAddress,
       attestation: {
         observedAt,
         bboxHash,
         reportHash,
         source,
       } satisfies AttestationPayload,
-      preparedRecordAttestation: prepared,
       submissionResult,
     });
   } catch (error) {

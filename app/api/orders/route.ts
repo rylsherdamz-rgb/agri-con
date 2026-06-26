@@ -21,11 +21,11 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { listingId, buyerAddress, amountUsdc, txHash, status } = body;
+    const { listingId, buyerAddress, amountXlm, txHash, status } = body;
     if (listingId == null || !buyerAddress) {
       return Response.json({ ok: false, error: "listingId and buyerAddress required" }, { status: 400 });
     }
-    await createOrder({ listingId, buyerAddress, amountUsdc, txHash, status });
+    await createOrder({ listingId, buyerAddress, amountXlm, txHash, status });
     return Response.json({ ok: true });
   } catch (err) {
     console.error("POST /api/orders:", err);

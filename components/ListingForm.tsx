@@ -35,7 +35,7 @@ interface Props {
   cropType: string;
   cropTypeCustom: string;
   quantityKg: string;
-  priceUsdc: string;
+  priceXlm: string;
   totalYieldKg: string;
   region: string;
   harvestDate: string;
@@ -68,7 +68,7 @@ export default function ListingForm({
   cropType,
   cropTypeCustom,
   quantityKg,
-  priceUsdc,
+  priceXlm,
   totalYieldKg,
   region,
   harvestDate,
@@ -201,11 +201,11 @@ export default function ListingForm({
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-semibold uppercase text-stone-500">
-              <DollarSign size={10} className="inline mr-1" /> Price (USDC)
+              <DollarSign size={10} className="inline mr-1" /> Price (XLM)
             </label>
             <input
               type="number"
-              value={priceUsdc}
+              value={priceXlm}
               onChange={(e) => onPriceChange(e.target.value)}
               placeholder="250.00"
               min={0}

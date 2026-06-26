@@ -25,9 +25,11 @@
     "opencode-ponytail": "^4.7.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "stellar-agent-kit": "^1.0.6",
     "three": "^0.184.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.41",
     "@types/react": "^19",

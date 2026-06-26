@@ -92,11 +92,11 @@ export default function CheckOutComponent({ listing, onConfirm, onCancel, confir
 
       {/* Stats grid */}
       <div className="mb-4 grid grid-cols-2 gap-3 rounded-xl bg-stone-50 p-3">
-        {listing.priceUsdc && (
+        {listing.priceXlm && (
           <div className="flex items-center gap-1.5 text-sm">
             <DollarSign size={14} className="text-emerald-700" />
-            <span className="font-semibold">{listing.priceUsdc}</span>
-            <span className="text-xs text-stone-400">USDC</span>
+            <span className="font-semibold">{listing.priceXlm}</span>
+            <span className="text-xs text-stone-400">XLM</span>
           </div>
         )}
         {listing.quantityKg !== null && (

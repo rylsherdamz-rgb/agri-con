@@ -57,7 +57,6 @@ pub struct FarmerProfile {
     pub full_name: String,
     pub farm_name: String,
     pub region: String,
-    pub government_id_object: String,
     pub verified: bool,
     pub total_yield_kg: i128,
     pub updated_at: u64,
@@ -141,7 +140,6 @@ pub enum DataKey {
     Profile(Address),
     Listing(u64),
     Validator(Address),
-    Oracle(Address),
     Proof(u64),
     Decision(u64),
     Buyable(u64),
@@ -209,13 +207,6 @@ pub struct DisasterNftMintedEvent {
 pub struct ValidatorAddedEvent {
     #[topic]
     pub validator: Address,
-}
-
-#[contractevent(topics = ["agri_con", "oracle_added"])]
-#[derive(Clone)]
-pub struct OracleAddedEvent {
-    #[topic]
-    pub oracle: Address,
 }
 
 #[contractevent(topics = ["agri_con", "proof_submitted"])]
@@ -468,7 +459,6 @@ impl AgriConContract {
         full_name: String,
         farm_name: String,
         region: String,
-        government_id_object: String,
         total_yield_kg: i128,
     ) {
         farmer.require_auth();
@@ -487,7 +477,6 @@ impl AgriConContract {
             full_name,
             farm_name,
             region,
-            government_id_object,
             verified,
             total_yield_kg,
             updated_at: env.ledger().timestamp(),
@@ -581,21 +570,6 @@ impl AgriConContract {
         ValidatorAddedEvent { validator }.publish(&env);
     }
 
-    pub fn add_oracle(env: Env, oracle: Address) {
-        require_admin(&env);
-        env.storage()
-            .persistent()
-            .set(&DataKey::Oracle(oracle.clone()), &true);
-        OracleAddedEvent { oracle }.publish(&env);
-    }
-
-    pub fn is_oracle(env: Env, oracle: Address) -> bool {
-        env.storage()
-            .persistent()
-            .get(&DataKey::Oracle(oracle))
-            .unwrap_or(false)
-    }
-
     pub fn set_listing_buyable(env: Env, nft_id: u64, buyable: bool) {
         require_admin(&env);
         env.storage()
@@ -610,55 +584,13 @@ impl AgriConContract {
         observed_at: u64,
         ndvi_bps: u64,
         min_ndvi_bps: u64,
-        buyable: bool,
         bbox_hash: String,
         report_hash: String,
         source: String,
     ) {
         require_admin(&env);
 
-        let attestation = SatelliteAttestation {
-            nft_id,
-            observed_at,
-            ndvi_bps,
-            min_ndvi_bps,
-            buyable,
-            bbox_hash,
-            report_hash,
-            source,
-        };
-
-        env.storage()
-            .persistent()
-            .set(&DataKey::Attestation(nft_id), &attestation);
-        env.storage()
-            .persistent()
-            .set(&DataKey::Buyable(nft_id), &buyable);
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    pub fn record_sat_attest_oracle(
-        env: Env,
-        oracle: Address,
-        nft_id: u64,
-        observed_at: u64,
-        ndvi_bps: u64,
-        min_ndvi_bps: u64,
-        buyable: bool,
-        bbox_hash: String,
-        report_hash: String,
-        source: String,
-    ) {
-        oracle.require_auth();
-        let is_allowed: bool = env
-            .storage()
-            .persistent()
-            .get(&DataKey::Oracle(oracle))
-            .unwrap_or(false);
-        if !is_allowed {
-            panic_with_error!(&env, AgriConError::Unauthorized);
-        }
-
+        let buyable = ndvi_bps >= min_ndvi_bps;
         let attestation = SatelliteAttestation {
             nft_id,
             observed_at,
@@ -1242,7 +1174,6 @@ mod tests {
                 1_716_123_456,
                 4821,
                 3500,
-                true,
                 String::from_str(&env, "bbox:demo"),
                 String::from_str(&env, "report:demo"),
                 String::from_str(&env, "openEO-SentinelHub"),
@@ -1258,11 +1189,10 @@ mod tests {
     }
 
     #[test]
-    fn oracle_attestation_requires_registration_and_sets_buyability() {
+    fn attestation_rejects_when_ndvi_below_threshold() {
         let env = Env::default();
         env.mock_all_auths();
         let admin = Address::generate(&env);
-        let oracle = Address::generate(&env);
         let usdc = Address::generate(&env);
         let treasury = Address::generate(&env);
 
@@ -1272,17 +1202,45 @@ mod tests {
         );
 
         env.as_contract(&contract_id, || {
-            AgriConContract::add_oracle(env.clone(), oracle.clone());
-            assert!(AgriConContract::is_oracle(env.clone(), oracle.clone()));
-
-            AgriConContract::record_sat_attest_oracle(
+            AgriConContract::record_satellite_attestation(
                 env.clone(),
-                oracle.clone(),
+                5,
+                1_716_123_456,
+                3000,
+                3500,
+                String::from_str(&env, "bbox:low-ndvi"),
+                String::from_str(&env, "report:low"),
+                String::from_str(&env, "openEO-SentinelHub"),
+            );
+
+            let attestation = AgriConContract::get_satellite_attestation(env.clone(), 5);
+            assert_eq!(attestation.ndvi_bps, 3000);
+            assert_eq!(attestation.min_ndvi_bps, 3500);
+            assert!(!attestation.buyable);
+            assert!(!AgriConContract::is_listing_buyable(env.clone(), 5));
+        });
+    }
+
+    #[test]
+    fn admin_attestation_works_without_oracle_role() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let usdc = Address::generate(&env);
+        let treasury = Address::generate(&env);
+
+        let contract_id = env.register(
+            AgriConContract,
+            (admin.clone(), usdc.clone(), treasury.clone()),
+        );
+
+        env.as_contract(&contract_id, || {
+            AgriConContract::record_satellite_attestation(
+                env.clone(),
                 42,
                 1_716_223_456,
                 3999,
                 3500,
-                true,
                 String::from_str(&env, "bbox:phase4"),
                 String::from_str(&env, "report:phase4"),
                 String::from_str(&env, "openEO-SentinelHub"),
@@ -1550,7 +1508,6 @@ mod tests {
             &String::from_str(&env, "Juan Dela Cruz"),
             &String::from_str(&env, "Green Valley Farm"),
             &String::from_str(&env, "Cavite"),
-            &String::from_str(&env, "gs://bucket/id.jpg"),
             &5_000i128,
         );
 

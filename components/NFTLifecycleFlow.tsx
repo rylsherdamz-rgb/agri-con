@@ -12,7 +12,7 @@ export type NftStep = "minted" | "listed" | "purchased" | "growing" | "verified"
 const STEPS: { key: NftStep; label: string; icon: typeof Leaf; desc: string }[] = [
   { key: "minted", label: "Minted", icon: Leaf, desc: "Crop NFT created on-chain" },
   { key: "listed", label: "Listed", icon: Sprout, desc: "Available in marketplace" },
-  { key: "purchased", label: "Purchased", icon: HandCoins, desc: "Buyer reserves with USDC" },
+  { key: "purchased", label: "Purchased", icon: HandCoins, desc: "Buyer reserves with XLM" },
   { key: "growing", label: "Growing", icon: Sprout, desc: "Farmer tends the crop" },
   { key: "verified", label: "Verified", icon: ShieldCheck, desc: "Validator confirms delivery" },
   { key: "settled", label: "Settled", icon: CheckCircle, desc: "Escrow released to farmer" },

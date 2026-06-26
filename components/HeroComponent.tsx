@@ -133,7 +133,7 @@ export default function HeroComponent({ listingCount, buyableCount, totalVolume,
           {[
             { icon: Sprout, title: "Tokenized Crops", desc: "Every crop lot is a verifiable NFT on Stellar Soroban with full provenance." },
             { icon: Satellite, title: "Satellite Verification", desc: "Copernicus Sentinel-2 NDVI analysis gates buyability with real vegetation data." },
-            { icon: Shield, title: "Smart Escrow", desc: "USDC payments held in escrow. 70% on delivery, 20% upfront, 10% to farmer aid pool." },
+            { icon: Shield, title: "Smart Escrow", desc: "XLM payments held in escrow. 70% on delivery, 20% upfront, 10% to farmer aid pool." },
           ].map(({ icon: Icon, title, desc }) => (
             <div key={title} className="rounded-2xl border border-stone-200/60 bg-white/70 p-5 shadow-sm backdrop-blur-sm transition hover:border-emerald-200 hover:shadow-md">
               <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-800"><Icon size={20} /></div>

@@ -23,11 +23,11 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status } = body;
+    const { nftId, cropType, quantityKg, priceXlm, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status } = body;
     if (nftId == null || !farmerId) {
       return Response.json({ ok: false, error: "nftId and farmerId required" }, { status: 400 });
     }
-    await upsertListing({ nftId, cropType, quantityKg, priceUsdc, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status });
+    await upsertListing({ nftId, cropType, quantityKg, priceXlm, farmerId, parcelName, region, buyable, ndviBps, minNdviBps, areaHa, totalYieldKg, status });
     return Response.json({ ok: true });
   } catch (err) {
     console.error("POST /api/listings:", err);

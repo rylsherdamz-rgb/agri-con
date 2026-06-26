@@ -3,7 +3,6 @@ import {
   prepareSetFarmerProfileVerified,
   prepareMintCropNft,
   prepareRecordSatelliteAttestation,
-  prepareRecordSatelliteAttestationByOracle,
   prepareSetListingBuyable,
   prepareSubmitProof,
   prepareUpsertFarmerProfile,
@@ -39,8 +38,6 @@ function makeRpcServer() {
 
 function getProbeAddress() {
   return (
-    process.env.ORACLE_ADDRESS ??
-    process.env.NEXT_PUBLIC_ORACLE_ADDRESS ??
     process.env.TREASURY_ADDRESS ??
     process.env.NEXT_PUBLIC_TREASURY_ADDRESS ??
     ""
@@ -90,19 +87,16 @@ export async function POST(request: Request) {
         return Response.json(await prepareSetListingBuyable(body as never));
       case "prepare_record_satellite_attestation":
         return Response.json(await prepareRecordSatelliteAttestation(body as never));
-      case "prepare_record_satellite_attestation_by_oracle":
-        return Response.json(await prepareRecordSatelliteAttestationByOracle(body as never));
       case "verify_delivery": {
         const nftId = typeof body.nftId === "number" ? body.nftId : NaN;
         if (isNaN(nftId)) {
           return Response.json({ error: "nftId is required" }, { status: 400 });
         }
-        const oracleAddress = process.env.ORACLE_ADDRESS ?? process.env.NEXT_PUBLIC_ORACLE_ADDRESS ?? "";
-        const oracleSecretKey = process.env.ORACLE_SECRET_KEY ?? "";
-        if (!oracleAddress || !oracleSecretKey) {
-          return Response.json({ error: "Oracle not configured" }, { status: 500 });
+        const adminSecretKey = process.env.ADMIN_SECRET_KEY ?? "";
+        if (!adminSecretKey) {
+          return Response.json({ error: "Admin not configured" }, { status: 500 });
         }
-        const result = await submitVerifyDelivery(nftId, oracleAddress, oracleSecretKey);
+        const result = await submitVerifyDelivery(nftId, adminSecretKey);
         return Response.json({ ok: true, hash: result.hash, status: result.status });
       }
       case "submit_signed_xdr": {

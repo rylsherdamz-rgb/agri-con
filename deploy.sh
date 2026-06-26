@@ -6,13 +6,12 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # ── Config ──────────────────────────────────────
 NETWORK="${NETWORK:-testnet}"
 IDENTITY="${IDENTITY:-richie}"       # stellar keys identity with admin secret
-ORACLE_ADDRESS="${ORACLE_ADDRESS:-GAQTXZLBZ2MTU2GWFEDHXBMJ7BMUZFXTW37ZNZF2IQYWQFPWPHTJWNA3}"
 WASM_DIR="$SCRIPT_DIR/contracts/target/wasm32v1-none/release"
 WASM="$WASM_DIR/agri_con.wasm"
 BUILD_TARGET="wasm32v1-none"
 
-# USDC on Stellar Testnet
-USDC="CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
+# Wrapped XLM on Stellar Testnet (from stellar-agent-kit)
+TOKEN="CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
 
 # Ensure identity exists
 if ! stellar keys address "$IDENTITY" &>/dev/null; then
@@ -27,12 +26,12 @@ ADMIN_ADDR=$(stellar keys address "$IDENTITY")
 echo "═══════════════════════════════════════════"
 echo "  agri_con CONTRACT — $NETWORK"
 echo "  Identity:  $IDENTITY ($ADMIN_ADDR)"
-echo "  Oracle:    $ORACLE_ADDRESS"
+echo "  Token:     Wrapped XLM"
 echo "═══════════════════════════════════════════"
 echo ""
 
 # ── STEP 0: Build WASM ──
-echo ">>> [0/6] Building contract WASM..."
+echo ">>> [0/5] Building contract WASM..."
 cd "$SCRIPT_DIR/contracts"
 cargo build --target "$BUILD_TARGET" --release 2>&1
 cd "$SCRIPT_DIR"
@@ -40,7 +39,7 @@ echo "  WASM: $(wc -c < "$WASM") bytes"
 echo ""
 
 # ── STEP 1: Upload WASM + estimate ──
-echo ">>> [1/6] Upload WASM & estimate cost..."
+echo ">>> [1/5] Upload WASM & estimate cost..."
 UPLOAD_XDR=$(stellar contract upload --wasm "$WASM" --source "$IDENTITY" --network "$NETWORK" --build-only 2>/dev/null | grep -oP '^[A-Za-z0-9+/=]+$' | head -1)
 UPLOAD_RESULT=$(curl -s "https://soroban-${NETWORK}.stellar.org" \
   -X POST -H 'Content-Type: application/json' \
@@ -51,7 +50,7 @@ echo "  Upload WASM: ${UPLOAD_FEE} stroops = ${UPLOAD_XLM} XLM"
 
 # ── STEP 2: Upload WASM (for real) ──
 echo ""
-echo ">>> [2/6] Uploading WASM to $NETWORK..."
+echo ">>> [2/5] Uploading WASM to $NETWORK..."
 UPLOAD_OUTPUT=$(stellar contract upload --wasm "$WASM" --source "$IDENTITY" --network "$NETWORK" 2>&1)
 echo "$UPLOAD_OUTPUT"
 WASM_HASH=$(echo "$UPLOAD_OUTPUT" | grep -oP 'wasm hash \K[a-f0-9]{64}' | tail -1 || echo "already-installed")
@@ -59,7 +58,7 @@ echo "  Wasm hash: $WASM_HASH"
 
 # ── STEP 3: Deploy + constructor estimate ──
 echo ""
-echo ">>> [3/6] Simulating deploy+constructor cost..."
+echo ">>> [3/5] Simulating deploy+constructor cost..."
 DEPLOY_XDR=$(stellar contract deploy \
   --wasm "$WASM" \
   --source "$IDENTITY" \
@@ -67,7 +66,7 @@ DEPLOY_XDR=$(stellar contract deploy \
   --build-only \
   -- \
   --admin "$ADMIN_ADDR" \
-  --usdc_token "$USDC" \
+  --usdc_token "$TOKEN" \
   --treasury "$ADMIN_ADDR" 2>/dev/null | grep -oP '^[A-Za-z0-9+/=]+$' | head -1)
 
 if [ -n "$DEPLOY_XDR" ]; then
@@ -83,14 +82,14 @@ fi
 
 # ── STEP 4: Actually deploy ──
 echo ""
-echo ">>> [4/6] Deploying contract with constructor..."
+echo ">>> [4/5] Deploying contract with constructor..."
 DEPLOY_OUTPUT=$(stellar contract deploy \
   --wasm "$WASM" \
   --source "$IDENTITY" \
   --network "$NETWORK" \
   -- \
   --admin "$ADMIN_ADDR" \
-  --usdc_token "$USDC" \
+  --usdc_token "$TOKEN" \
   --treasury "$ADMIN_ADDR" 2>&1)
 echo "$DEPLOY_OUTPUT"
 
@@ -98,30 +97,13 @@ CONTRACT_ID=$(echo "$DEPLOY_OUTPUT" | grep -oP 'C[A-Z0-9]{55}' | tail -1)
 echo ""
 echo "  ✓ CONTRACT ID: $CONTRACT_ID"
 
-# ── STEP 5: Register Oracle ──
+# ── STEP 5: Verify + mint test NFT ──
 echo ""
-echo ">>> [5/6] Registering oracle address..."
-ORACLE_OUTPUT=$(stellar contract invoke \
-  --id "$CONTRACT_ID" \
-  --source "$IDENTITY" \
-  --network "$NETWORK" \
-  -- \
-  add_oracle \
-  --oracle "$ORACLE_ADDRESS" 2>&1)
-echo "  $ORACLE_OUTPUT"
-echo "  ✓ Oracle registered: $ORACLE_ADDRESS"
-
-# ── STEP 6: Verify + mint test NFT ──
-echo ""
-echo ">>> [6/6] Verifying: get_admin, get_usdc_token..."
+echo ">>> [5/5] Verifying: get_admin, get_usdc_token..."
 echo -n "  Admin: "
 stellar contract invoke --id "$CONTRACT_ID" --source "$IDENTITY" --network "$NETWORK" -- get_admin 2>/dev/null | tail -1
-echo -n "  USDC token: "
+echo -n "  Token: "
 stellar contract invoke --id "$CONTRACT_ID" --source "$IDENTITY" --network "$NETWORK" -- get_usdc_token 2>/dev/null | tail -1
-
-echo ""
-echo "  Oracle check: "
-stellar contract invoke --id "$CONTRACT_ID" --source "$IDENTITY" --network "$NETWORK" -- is_oracle --oracle "$ORACLE_ADDRESS" 2>/dev/null | tail -1
 
 echo ""
 echo ">>> Minting test NFT..."
@@ -160,7 +142,7 @@ echo "  DEPLOYMENT COMPLETE"
 echo "════════════════════════════════════════════"
 echo "  Network:    $NETWORK"
 echo "  Admin:      $ADMIN_ADDR"
-echo "  Oracle:     $ORACLE_ADDRESS"
+echo "  Token:      Wrapped XLM"
 echo "  Contract:   $CONTRACT_ID"
 echo ""
 echo "  WASM upload cost:   ${UPLOAD_XLM} XLM"
@@ -168,9 +150,8 @@ echo "  Deploy cost:        ${DEPLOY_XLM} XLM"
 echo ""
 echo "  Add to .env.local:"
 echo "  NEXT_PUBLIC_AGRI_CON_CONTRACT_ID=\"$CONTRACT_ID\""
-echo "  NEXT_PUBLIC_ORACLE_ADDRESS=\"$ORACLE_ADDRESS\""
 echo "  NEXT_PUBLIC_TREASURY_ADDRESS=\"$ADMIN_ADDR\""
-echo "  ORACLE_SECRET_KEY=\"<oracle-secret-from-step-2>\""
+echo "  ADMIN_SECRET_KEY=\"<admin-secret>\""
 echo ""
 echo "  Then update Vercel env vars:"
 echo "  vercel env add NEXT_PUBLIC_AGRI_CON_CONTRACT_ID production"

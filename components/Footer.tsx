@@ -32,7 +32,7 @@ export default function Footer() {
             </p>
           </div>
           <p className="mt-4 max-w-md text-sm leading-6 text-stone-400">
-            A Soroban-based agricultural reservation model where crop NFTs, USDC escrow,
+            A Soroban-based agricultural reservation model where crop NFTs, XLM escrow,
             and satellite verification create a market farmers and buyers can audit end to end.
           </p>
           <a

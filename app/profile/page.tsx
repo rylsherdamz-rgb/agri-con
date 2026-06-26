@@ -69,7 +69,7 @@ export default function ProfilePage() {
               farmName: p.farmName || "",
               region: p.region || "",
               totalYieldKg: p.totalYieldKg || 0,
-              idDocPath: p.governmentIdObject || null,
+              idDocPath: null,
               verified: p.verified ?? false,
               createdAt: "",
               updatedAt: "",

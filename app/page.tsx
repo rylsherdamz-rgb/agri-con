@@ -15,8 +15,8 @@ export default async function Home() {
 
   const buyableCount = listings.filter((l) => l.buyable).length;
   const totalVolume = listings
-    .filter((l) => l.priceUsdc !== null)
-    .reduce((s, l) => s + parseFloat(l.priceUsdc ?? "0"), 0);
+    .filter((l) => l.priceXlm !== null)
+    .reduce((s, l) => s + parseFloat(l.priceXlm ?? "0"), 0);
   const verifiedCount = profiles.filter((p) => p.verified).length;
 
   return (

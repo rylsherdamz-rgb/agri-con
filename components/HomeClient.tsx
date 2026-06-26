@@ -19,7 +19,7 @@ export function HowItWorksSection() {
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-stone-500">
             Every crop follows a simple path — minted as an NFT, verified by satellite,
-            and settled on-chain with USDC.
+            and settled on-chain with XLM.
           </p>
         </div>
         <div className="overflow-x-auto pb-4">
@@ -91,14 +91,14 @@ export function ChoosePathSection() {
                 I want to buy verified crops
               </p>
               <p className="mt-3 text-sm leading-relaxed text-stone-500">
-                Browse verified crop parcels with real NDVI satellite data. Your USDC is
+                Browse verified crop parcels with real NDVI satellite data. Your XLM is
                 held in escrow until delivery — no risk, full transparency.
               </p>
               <div className="mt-5 space-y-2.5">
                 {[
                   { num: 1, label: "Browse marketplace with satellite-verified listings" },
                   { num: 2, label: "Compare NDVI health scores and AI crop analysis" },
-                  { num: 3, label: "Purchase with USDC — funds held securely in escrow" },
+                  { num: 3, label: "Purchase with XLM — funds held securely in escrow" },
                   { num: 4, label: "Track delivery, release escrow, or claim refund" },
                 ].map(({ num, label }) => (
                   <div key={num} className="flex items-start gap-3 text-sm text-stone-600">
@@ -138,7 +138,7 @@ export function StatsBanner({
           <div className="flex flex-wrap items-center justify-center gap-x-16 gap-y-6 text-center">
             {[
               { value: listingCount.toLocaleString(), label: "Crop NFTs Minted", icon: Sprout },
-              { value: `${totalVolume.toFixed(0)} USDC`, label: "Market Volume", icon: Satellite },
+              { value: `${totalVolume.toFixed(0)} XLM`, label: "Market Volume", icon: Satellite },
               { value: verifiedCount, label: "Verified Farmers", icon: Users },
               { value: buyableCount, label: "Buyable Listings", icon: TrendingUp },
             ].map(({ value, label, icon: Icon }) => (

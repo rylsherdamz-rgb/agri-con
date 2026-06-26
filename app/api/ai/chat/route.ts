@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       "You help farmers and buyers understand:",
       "- Satellite NDVI data and what vegetation health means for crop yields",
       "- Weather impacts on harvest predictions",
-      "- Forward contract terms (USDC escrow, 20% upfront + 70% on delivery + 10% treasury)",
+      "- Forward contract terms (XLM escrow, 20% upfront + 70% on delivery + 10% treasury)",
       "- When to buy or sell crop NFTs",
       "",
       "Keep answers concise (2-4 sentences). Use plain language.",

@@ -112,10 +112,10 @@ function ListingCard({ listing, farmerRating, onBuy }: { listing: LiveListing; f
             <span className="capitalize truncate">{listing.cropType}</span>
           </div>
         )}
-        {listing.priceUsdc && (
+        {listing.priceXlm && (
           <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
             <DollarSign size={13} className="text-farm-600 shrink-0" />
-            <span className="font-semibold tabular-nums">{listing.priceUsdc} USDC</span>
+            <span className="font-semibold tabular-nums">{listing.priceXlm} XLM</span>
           </div>
         )}
         {listing.quantityKg !== null && (
@@ -249,8 +249,8 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
     ? listings.reduce((s, l) => s + (l.ndviBps ?? 0), 0) / listings.length / 100
     : 0;
   const totalVolume = listings
-    .filter((l) => l.priceUsdc !== null)
-    .reduce((s, l) => s + parseFloat(l.priceUsdc ?? "0"), 0);
+    .filter((l) => l.priceXlm !== null)
+    .reduce((s, l) => s + parseFloat(l.priceXlm ?? "0"), 0);
   const regions = [...new Set(listings.map((l) => l.region).filter(Boolean))];
 
   const { toast } = useToast();
@@ -276,7 +276,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
           body: JSON.stringify({
             listingId: checkoutListing.nftId,
             buyerAddress: address,
-            amountUsdc: checkoutListing.priceUsdc,
+            amountUsdc: checkoutListing.priceXlm,
             txHash: result.hash || "",
             status: "escrow",
           }),
@@ -334,7 +334,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
         {[
           { icon: Sprout, label: "Active Listings", value: listings.length, color: "bg-farm-50 text-farm-700" },
           { icon: TrendingUp, label: "Avg NDVI", value: `${avgNdvi.toFixed(0)}%`, color: "bg-farm-50 text-farm-700" },
-          { icon: DollarSign, label: "Total Volume", value: `${totalVolume.toFixed(0)} USDC`, color: "bg-harvest-50 text-harvest-700" },
+          { icon: DollarSign, label: "Total Volume", value: `${totalVolume.toFixed(0)} XLM`, color: "bg-harvest-50 text-harvest-700" },
           { icon: Users, label: "Regions Covered", value: regions.length, color: "bg-soil-50 text-soil-700" },
         ].map(({ icon: Icon, label, value, color }) => (
           <div key={label} className="card-farm flex items-center gap-3 px-4 py-3">

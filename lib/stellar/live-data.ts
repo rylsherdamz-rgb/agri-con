@@ -15,7 +15,7 @@ export type LiveListing = {
   nftId: number;
   cropType: string | null;
   quantityKg: number | null;
-  priceUsdc: string | null;
+  priceXlm: string | null;
   farmer: string | null;
   harvestDate: number | null;
   cropStatus: string | null;
@@ -37,7 +37,6 @@ export type LiveFarmerProfile = {
   fullName: string;
   farmName: string;
   region: string;
-  governmentIdObject: string;
   verified: boolean;
   totalYieldKg: number;
   updatedAt: number;
@@ -63,8 +62,6 @@ function withTimeout<T>(promise: Promise<T>, label: string, ms = 7000) {
 
 function getProbeAddress() {
   return (
-    process.env.ORACLE_ADDRESS ??
-    process.env.NEXT_PUBLIC_ORACLE_ADDRESS ??
     process.env.TREASURY_ADDRESS ??
     process.env.NEXT_PUBLIC_TREASURY_ADDRESS ??
     ""
@@ -101,7 +98,7 @@ function scNumberToNumber(value: unknown): number | null {
   return null;
 }
 
-function formatUsdcFromStroops(value: unknown): string | null {
+function formatTokenFromStroops(value: unknown): string | null {
   const raw = scNumberToNumber(value);
   if (raw === null) return null;
   return (raw / 10_000_000).toFixed(2);
@@ -114,7 +111,7 @@ async function readContract(method: string, args: xdr.ScVal[]) {
 
   const probe = getProbeAddress();
   if (!probe) {
-    throw new Error("Missing probe address (set ORACLE_ADDRESS or TREASURY_ADDRESS)");
+    throw new Error("Missing probe address (set TREASURY_ADDRESS)");
   }
 
   const server = makeRpcServer();
@@ -146,7 +143,7 @@ export async function getLiveListings(): Promise<LiveListing[]> {
     ids.map(async (nftId) => {
       let cropType: string | null = null;
       let quantityKg: number | null = null;
-      let priceUsdc: string | null = null;
+      let priceXlm: string | null = null;
       let farmer: string | null = null;
       let harvestDate: number | null = null;
       let cropStatus: string | null = null;
@@ -179,7 +176,7 @@ export async function getLiveListings(): Promise<LiveListing[]> {
         )) as Record<string, unknown>;
         cropType = typeof crop.crop_type === "string" ? crop.crop_type : null;
         quantityKg = scNumberToNumber(crop.quantity);
-        priceUsdc = formatUsdcFromStroops(crop.price);
+        priceXlm = formatTokenFromStroops(crop.price);
         farmer = typeof crop.farmer === "string" ? crop.farmer : null;
         harvestDate = scNumberToNumber(crop.harvest_date);
         cropStatus = typeof crop.status === "string" ? crop.status : null;
@@ -221,7 +218,7 @@ export async function getLiveListings(): Promise<LiveListing[]> {
         nftId,
         cropType,
         quantityKg,
-        priceUsdc,
+        priceXlm,
         farmer,
         harvestDate,
         cropStatus,
@@ -261,8 +258,6 @@ export async function getLiveFarmerProfiles(): Promise<LiveFarmerProfile[]> {
           fullName: typeof result.full_name === "string" ? result.full_name : "",
           farmName: typeof result.farm_name === "string" ? result.farm_name : "",
           region: typeof result.region === "string" ? result.region : "",
-          governmentIdObject:
-            typeof result.government_id_object === "string" ? result.government_id_object : "",
           verified: Boolean(result.verified),
           totalYieldKg:
             typeof result.total_yield_kg === "number"

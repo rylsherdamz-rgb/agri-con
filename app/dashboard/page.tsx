@@ -17,8 +17,8 @@ export default async function DashboardPage() {
 
   const buyable = listings.filter((l) => l.buyable);
   const totalVolume = listings
-    .filter((l) => l.priceUsdc !== null)
-    .reduce((sum, l) => sum + parseFloat(l.priceUsdc ?? "0"), 0);
+    .filter((l) => l.priceXlm !== null)
+    .reduce((sum, l) => sum + parseFloat(l.priceXlm ?? "0"), 0);
 
   return (
     <div className="flex min-h-screen flex-col bg-stone-50">
@@ -106,8 +106,8 @@ export default async function DashboardPage() {
                         </p>
                       </div>
                       <div className="ml-4 flex items-center gap-3 shrink-0">
-                        {l.priceUsdc && (
-                          <span className="text-sm font-semibold tabular-nums text-stone-800">{l.priceUsdc} USDC</span>
+                        {l.priceXlm && (
+                          <span className="text-sm font-semibold tabular-nums text-stone-800">{l.priceXlm} XLM</span>
                         )}
                         <span className={l.buyable ? "badge-buyable" : "badge-pending"}>
                           {l.buyable ? "Ready" : "Pending"}

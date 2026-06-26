@@ -42,7 +42,7 @@ export default function LiquidityPool() {
           <p className="text-xs font-semibold uppercase tracking-wider text-stone-400">Pool Balance</p>
           <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-stone-900">
             {poolBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            <span className="ml-1 text-sm font-normal text-stone-500">USDC</span>
+            <span className="ml-1 text-sm font-normal text-stone-500">XLM</span>
           </p>
         </div>
       </div>

@@ -18,7 +18,7 @@ type MintCropInput = {
   farmer: string;
   cropType: string;
   quantityKg: number;
-  priceUsdc: string;
+  priceXlm: string;
   harvestDate: string;
   parcelName: string;
   parcelBboxHash: string;
@@ -37,7 +37,6 @@ type UpsertFarmerProfileInput = {
   fullName: string;
   farmName: string;
   region: string;
-  governmentIdObject: string;
   totalYieldKg: number;
 };
 type SetFarmerProfileVerifiedInput = {
@@ -71,18 +70,6 @@ type RecordSatelliteAttestationInput = {
   observedAt: number;
   ndviBps: number;
   minNdviBps: number;
-  buyable: boolean;
-  bboxHash: string;
-  reportHash: string;
-  source: string;
-};
-type RecordSatelliteAttestationByOracleInput = {
-  oracle: string;
-  nftId: number;
-  observedAt: number;
-  ndviBps: number;
-  minNdviBps: number;
-  buyable: boolean;
   bboxHash: string;
   reportHash: string;
   source: string;
@@ -107,13 +94,13 @@ function getContractId(contract: ContractKey) {
   return value;
 }
 
-function parseUsdcAmount(amount: string) {
+function parseTokenAmount(amount: string) {
   return toStroops(amount, 7);
 }
 
 /**
  * Convert a human-readable decimal amount string into integer base units
- * (e.g. USDC with 7 decimals: "2500.50" -> 25005000000n). Replaces the
+ * (e.g. XLM with 7 decimals: "2500.50" -> 25005000000n). Replaces the
  * removed `Soroban.parseTokenAmount` helper from older SDK versions.
  */
 function toStroops(amount: string, decimals: number): bigint {
@@ -168,7 +155,7 @@ export async function prepareMintCropNft(input: MintCropInput): Promise<Unsigned
       nativeToScVal(input.farmer, { type: "address" }),
       nativeToScVal(input.cropType, { type: "string" }),
       nativeToScVal(BigInt(input.quantityKg), { type: "i128" }),
-      nativeToScVal(parseUsdcAmount(input.priceUsdc), { type: "i128" }),
+      nativeToScVal(parseTokenAmount(input.priceXlm), { type: "i128" }),
       nativeToScVal(harvestDateToUnix(input.harvestDate), { type: "u64" }),
       nativeToScVal(input.parcelName, { type: "string" }),
       nativeToScVal(input.parcelBboxHash, { type: "string" }),
@@ -205,7 +192,6 @@ export async function prepareUpsertFarmerProfile(
       nativeToScVal(input.fullName, { type: "string" }),
       nativeToScVal(input.farmName, { type: "string" }),
       nativeToScVal(input.region, { type: "string" }),
-      nativeToScVal(input.governmentIdObject, { type: "string" }),
       nativeToScVal(BigInt(input.totalYieldKg), { type: "i128" }),
     ],
   );
@@ -252,8 +238,8 @@ export async function prepareVerifyDelivery(input: VerifyInput): Promise<Unsigne
       nativeToScVal(input.nftId, { type: "u64" }),
       nativeToScVal(input.status, { type: "string" }),
       nativeToScVal(input.notesHash, { type: "string" }),
-      nativeToScVal(parseUsdcAmount(input.refundAmount), { type: "i128" }),
-      nativeToScVal(parseUsdcAmount(input.treasuryCompensation), { type: "i128" }),
+      nativeToScVal(parseTokenAmount(input.refundAmount), { type: "i128" }),
+      nativeToScVal(parseTokenAmount(input.treasuryCompensation), { type: "i128" }),
     ],
   );
   const xdr = prepared.toXDR();
@@ -300,35 +286,6 @@ export async function prepareRecordSatelliteAttestation(
   return { xdr, hash: hashFromXdr(xdr), contractId, method: "record_satellite_attestation" };
 }
 
-export async function prepareRecordSatelliteAttestationByOracle(
-  input: RecordSatelliteAttestationByOracleInput,
-): Promise<UnsignedTxPreview> {
-  const contractId = getContractId("agriCon");
-  const prepared = await buildPreparedContractTransaction(
-    input.oracle,
-    contractId,
-    "record_sat_attest_oracle",
-    [
-      nativeToScVal(input.oracle, { type: "address" }),
-      nativeToScVal(input.nftId, { type: "u64" }),
-      nativeToScVal(input.observedAt, { type: "u64" }),
-      nativeToScVal(input.ndviBps, { type: "u64" }),
-      nativeToScVal(input.minNdviBps, { type: "u64" }),
-      nativeToScVal(input.buyable, { type: "bool" }),
-      nativeToScVal(input.bboxHash, { type: "string" }),
-      nativeToScVal(input.reportHash, { type: "string" }),
-      nativeToScVal(input.source, { type: "string" }),
-    ],
-  );
-  const xdr = prepared.toXDR();
-  return {
-    xdr,
-    hash: hashFromXdr(xdr),
-    contractId,
-    method: "record_sat_attest_oracle",
-  };
-}
-
 export async function submitSignedTransaction(signedXdr: string) {
   const server = makeRpcServer();
   const tx = TransactionBuilder.fromXDR(signedXdr, STELLAR_NETWORK_PASSPHRASE);
@@ -338,11 +295,12 @@ export async function submitSignedTransaction(signedXdr: string) {
 
 export async function submitVerifyDelivery(
   nftId: number,
-  oracleAddress: string,
-  oracleSecretKey: string,
+  adminSecretKey: string,
 ) {
+  const adminKp = Keypair.fromSecret(adminSecretKey);
+  const adminAddr = adminKp.publicKey();
   const server = makeRpcServer();
-  const account = await server.getAccount(oracleAddress);
+  const account = await server.getAccount(adminAddr);
   const contractId = getContractId("agriCon");
   const contract = new Contract(contractId);
   const tx = new TransactionBuilder(account, {
@@ -351,7 +309,7 @@ export async function submitVerifyDelivery(
   })
     .addOperation(
       contract.call("verify_delivery", ...[
-        nativeToScVal(oracleAddress, { type: "address" }),
+        nativeToScVal(adminAddr, { type: "address" }),
         nativeToScVal(BigInt(nftId), { type: "u64" }),
         nativeToScVal("Delivered", { type: "string" }),
         nativeToScVal("", { type: "string" }),
@@ -362,16 +320,17 @@ export async function submitVerifyDelivery(
     .setTimeout(TimeoutInfinite)
     .build();
   const prepared = await server.prepareTransaction(tx);
-  const keypair = Keypair.fromSecret(oracleSecretKey);
-  prepared.sign(keypair);
+  prepared.sign(adminKp);
   return server.sendTransaction(prepared);
 }
 
-export async function submitRecordSatelliteAttestationByOracle(
-  input: RecordSatelliteAttestationByOracleInput & { oracleSecretKey: string },
+export async function submitRecordSatelliteAttestation(
+  input: Omit<RecordSatelliteAttestationInput, "admin"> & { adminSecretKey: string },
 ) {
+  const adminKp = Keypair.fromSecret(input.adminSecretKey);
+  const adminAddr = adminKp.publicKey();
   const server = makeRpcServer();
-  const account = await server.getAccount(input.oracle);
+  const account = await server.getAccount(adminAddr);
   const contractId = getContractId("agriCon");
   const contract = new Contract(contractId);
   const tx = new TransactionBuilder(account, {
@@ -379,13 +338,11 @@ export async function submitRecordSatelliteAttestationByOracle(
     networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
   })
     .addOperation(
-      contract.call("record_sat_attest_oracle", ...[
-        nativeToScVal(input.oracle, { type: "address" }),
-        nativeToScVal(input.nftId, { type: "u64" }),
+      contract.call("record_satellite_attestation", ...[
+        nativeToScVal(BigInt(input.nftId), { type: "u64" }),
         nativeToScVal(input.observedAt, { type: "u64" }),
         nativeToScVal(input.ndviBps, { type: "u64" }),
         nativeToScVal(input.minNdviBps, { type: "u64" }),
-        nativeToScVal(input.buyable, { type: "bool" }),
         nativeToScVal(input.bboxHash, { type: "string" }),
         nativeToScVal(input.reportHash, { type: "string" }),
         nativeToScVal(input.source, { type: "string" }),
@@ -394,7 +351,6 @@ export async function submitRecordSatelliteAttestationByOracle(
     .setTimeout(TimeoutInfinite)
     .build();
   const prepared = await server.prepareTransaction(tx);
-  const keypair = Keypair.fromSecret(input.oracleSecretKey);
-  prepared.sign(keypair);
+  prepared.sign(adminKp);
   return server.sendTransaction(prepared);
 }

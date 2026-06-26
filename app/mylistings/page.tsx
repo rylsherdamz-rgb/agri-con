@@ -46,10 +46,10 @@ function ListingCard({ listing }: { listing: LiveListing }) {
             <span className="capitalize truncate">{listing.cropType}</span>
           </div>
         )}
-        {listing.priceUsdc && (
+        {listing.priceXlm && (
           <div className="flex items-center gap-1.5 rounded-lg bg-stone-50 px-2.5 py-1.5 text-stone-600">
             <DollarSign size={12} className="text-farm-600 shrink-0" />
-            <span className="font-semibold tabular-nums">{listing.priceUsdc} USDC</span>
+            <span className="font-semibold tabular-nums">{listing.priceXlm} XLM</span>
           </div>
         )}
         {listing.quantityKg !== null && (
@@ -94,7 +94,7 @@ export default function MyListingsPage() {
           nftId: (l.nftId ?? l.nft_id) as number,
           cropType: (l.cropType ?? l.crop_type ?? null) as string | null,
           quantityKg: (l.quantityKg ?? l.quantity_kg ?? null) as number | null,
-          priceUsdc: l.priceUsdc != null ? String(l.priceUsdc) : (l.price_usdc != null ? String(l.price_usdc) : null),
+          priceXlm: l.priceXlm != null ? String(l.priceXlm) : null,
           farmer: (l.farmerId ?? l.farmer_id ?? address) as string,
           harvestDate: null,
           cropStatus: null,

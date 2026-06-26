@@ -47,9 +47,6 @@
                   "string": "Cavite"
                 },
                 {
-                  "string": "gs://bucket/id.jpg"
-                },
-                {
                   "i128": "5000"
                 }
               ]
@@ -197,14 +194,6 @@
                     },
                     "val": {
                       "string": "Juan Dela Cruz"
-                    }
-                  },
-                  {
-                    "key": {
-                      "symbol": "government_id_object"
-                    },
-                    "val": {
-                      "string": "gs://bucket/id.jpg"
                     }
                   },
                   {

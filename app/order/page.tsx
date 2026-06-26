@@ -227,8 +227,8 @@ export default function OrderPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-4 text-right text-sm">
-                          {l.priceUsdc && (
-                            <span className="font-semibold tabular-nums text-stone-800">{l.priceUsdc} USDC</span>
+                          {l.priceXlm && (
+                            <span className="font-semibold tabular-nums text-stone-800">{l.priceXlm} XLM</span>
                           )}
                           <span className={l.buyable ? "badge-buyable" : "badge-pending"}>
                             {l.buyable ? "Settled" : "Escrow"}

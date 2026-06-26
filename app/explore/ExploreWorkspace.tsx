@@ -116,7 +116,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
   const [cropType, setCropType] = useState("rice");
   const [cropTypeCustom, setCropTypeCustom] = useState("");
   const [quantityKg, setQuantityKg] = useState("");
-  const [priceUsdc, setPriceUsdc] = useState("");
+  const [priceXlm, setPriceUsdc] = useState("");
   const [totalYieldKg, setTotalYieldKg] = useState("");
   const [region, setRegion] = useState("");
   const [harvestDate, setHarvestDate] = useState(() => {
@@ -274,7 +274,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
       const yieldKg = parseInt(totalYieldKg, 10);
       if (!yieldKg || yieldKg <= 0) throw new Error("Enter a valid total yield.");
 
-      const price = parseFloat(priceUsdc);
+      const price = parseFloat(priceXlm);
       if (!price || price <= 0) throw new Error("Enter a valid price.");
 
       const name = parcelName.trim() || draftLabel.trim() || `Parcel at ${polygonCenter?.lat.toFixed(4)}N`;
@@ -291,7 +291,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
           farmer,
           cropType: effectiveCropType,
           quantityKg: qty,
-          priceUsdc: price.toFixed(2),
+          priceXlm: price.toFixed(2),
           harvestDate,
           parcelName: name,
           parcelBboxHash: bboxHash,
@@ -341,7 +341,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
             nftId: newNftId,
             cropType: effectiveCropType,
             quantityKg: qty,
-            priceUsdc: parseFloat(priceUsdc),
+            priceXlm: parseFloat(priceXlm),
             farmerId: farmer,
             parcelName: name,
             region: reg,
@@ -378,8 +378,8 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
   const formValid = parcelName.trim().length > 0
     && quantityKg.trim().length > 0
     && parseInt(quantityKg, 10) > 0
-    && priceUsdc.trim().length > 0
-    && parseFloat(priceUsdc) > 0
+    && priceXlm.trim().length > 0
+    && parseFloat(priceXlm) > 0
     && totalYieldKg.trim().length > 0
     && parseInt(totalYieldKg, 10) > 0;
 
@@ -474,7 +474,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
             cropType={cropType}
             cropTypeCustom={cropTypeCustom}
             quantityKg={quantityKg}
-            priceUsdc={priceUsdc}
+            priceXlm={priceXlm}
             totalYieldKg={totalYieldKg}
             region={region}
             harvestDate={harvestDate}
