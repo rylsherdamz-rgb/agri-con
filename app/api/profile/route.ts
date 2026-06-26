@@ -1,4 +1,5 @@
 import { getFarmer, listFarmers, upsertFarmer } from "@/lib/db";
+import { submitSetFarmerProfileVerified } from "@/lib/stellar/backend";
 
 function toCamel(row: Record<string, unknown> | null) {
   if (!row) return null;
@@ -28,14 +29,21 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { address, fullName, farmName, region, totalYieldKg, idDocPath, verified } = body;
+    const { address, fullName, farmName, region, totalYieldKg, idDocPath } = body;
     if (!address || !fullName) {
       return Response.json({ ok: false, error: "address and fullName required" }, { status: 400 });
     }
     const profile = await upsertFarmer({
       id: address, fullName, farmName, region,
-      totalYieldKg: totalYieldKg || 0, idDocPath, verified,
+      totalYieldKg: totalYieldKg || 0, idDocPath, verified: true,
     });
+
+    // Auto-verify on-chain via admin key
+    const adminSecretKey = process.env.ADMIN_SECRET_KEY ?? "";
+    if (adminSecretKey) {
+      submitSetFarmerProfileVerified(address, adminSecretKey).catch(() => {});
+    }
+
     return Response.json({ ok: true, profile: toCamel(profile as Record<string, unknown>) });
   } catch (err) {
     console.error("POST /api/profile:", err);

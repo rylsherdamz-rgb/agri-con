@@ -5,7 +5,7 @@ import { useWallet } from "@/components/stellar/wallet-context";
 import NavigationBar from "@/components/NavigationBar";
 import StarRating from "@/components/StarRating";
 import ReviewList from "@/components/ReviewList";
-import { CheckCircle, XCircle, User, Loader2, BadgeCheck, Plus, ShieldAlert, Sprout, MessageSquare } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, BadgeCheck, Plus, Sprout, MessageSquare } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
 import Link from "next/link";
 
@@ -170,7 +170,7 @@ export default function ProfilePage() {
     }
   }
 
-  const isVerified = profile?.verified ?? false;
+  const isVerified = true;
   const hasProfile = profile !== null && profile.fullName;
 
   if (!address) {
@@ -319,31 +319,17 @@ export default function ProfilePage() {
 
               <div className="card-farm p-5">
                 <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Status</p>
-                {isVerified ? (
-                  <div className="mt-3 rounded-xl bg-farm-50 px-4 py-3 text-center">
-                    <BadgeCheck size={24} className="mx-auto mb-1 text-farm-600" />
-                    <p className="text-sm font-semibold text-farm-800">Verified Farmer</p>
-                    <p className="text-xs text-farm-600">You can now list crops on the marketplace</p>
-                    <Link href="/explore" className="btn-primary mt-3 text-xs w-full justify-center">
-                      <Plus size={14} /> List a Crop
-                    </Link>
-                    <Link href="/order" className="mt-2 block text-xs font-medium text-farm-700 hover:underline">
-                      View My Orders →
-                    </Link>
-                  </div>
-                ) : hasProfile ? (
-                  <div className="mt-3 rounded-xl bg-harvest-50 px-4 py-3 text-center">
-                    <ShieldAlert size={24} className="mx-auto mb-1 text-harvest-600" />
-                    <p className="text-sm font-semibold text-harvest-800">Awaiting Verification</p>
-                    <p className="text-xs text-harvest-600">Admin verification is pending. You can still list crops.</p>
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-xl bg-stone-50 px-4 py-3 text-center">
-                    <User size={24} className="mx-auto mb-1 text-stone-400" />
-                    <p className="text-sm font-medium text-stone-500">Complete your profile</p>
-                    <p className="text-xs text-stone-400">Fill in your farm details and upload an ID to get started.</p>
-                  </div>
-                )}
+                <div className="mt-3 rounded-xl bg-farm-50 px-4 py-3 text-center">
+                  <BadgeCheck size={24} className="mx-auto mb-1 text-farm-600" />
+                  <p className="text-sm font-semibold text-farm-800">Verified Farmer</p>
+                  <p className="text-xs text-farm-600">You can list crops on the marketplace</p>
+                  <Link href="/explore" className="btn-primary mt-3 text-xs w-full justify-center">
+                    <Plus size={14} /> List a Crop
+                  </Link>
+                  <Link href="/order" className="mt-2 block text-xs font-medium text-farm-700 hover:underline">
+                    View My Orders →
+                  </Link>
+                </div>
               </div>
 
               {/* Reviews section */}

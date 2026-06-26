@@ -354,3 +354,30 @@ export async function submitRecordSatelliteAttestation(
   prepared.sign(adminKp);
   return server.sendTransaction(prepared);
 }
+
+export async function submitSetFarmerProfileVerified(
+  farmerAddress: string,
+  adminSecretKey: string,
+) {
+  const adminKp = Keypair.fromSecret(adminSecretKey);
+  const adminAddr = adminKp.publicKey();
+  const server = makeRpcServer();
+  const account = await server.getAccount(adminAddr);
+  const contractId = getContractId("agriCon");
+  const contract = new Contract(contractId);
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
+    .addOperation(
+      contract.call("set_farmer_profile_verified", ...[
+        nativeToScVal(farmerAddress, { type: "address" }),
+        nativeToScVal(true, { type: "bool" }),
+      ]),
+    )
+    .setTimeout(TimeoutInfinite)
+    .build();
+  const prepared = await server.prepareTransaction(tx);
+  prepared.sign(adminKp);
+  return server.sendTransaction(prepared);
+}
