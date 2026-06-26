@@ -1,4 +1,12 @@
 import { test, expect } from "@playwright/test";
+import { Keypair, TransactionBuilder } from "@stellar/stellar-sdk";
+
+async function createFundedKeypair() {
+  const kp = Keypair.random();
+  const addr = kp.publicKey();
+  await fetch(`https://friendbot.stellar.org?addr=${addr}`, { method: "GET" });
+  return { kp, addr };
+}
 
 test.describe("Landing page", () => {
   test("loads hero section", async ({ page }) => {
@@ -21,32 +29,62 @@ test.describe("API endpoints", () => {
   });
 
   test("POST /api/stellar get_treasury_pool returns ok", async ({ request }) => {
-    const res = await request.post("/api/stellar", {
-      data: { action: "get_treasury_pool" },
-    });
+    const res = await request.post("/api/stellar", { data: { action: "get_treasury_pool" } });
     expect(res.ok()).toBeTruthy();
     const body = await res.json();
     expect(body.ok).toBe(true);
   });
+
+  test("POST /api/stellar get_all_listings returns ok", async ({ request }) => {
+    const res = await request.post("/api/stellar", { data: { action: "get_all_listings" } });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(Array.isArray(body.listings)).toBe(true);
+  });
+
+  test("GET /api/listings returns ok", async ({ request }) => {
+    const res = await request.get("/api/listings");
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(Array.isArray(body.listings ?? body.data ?? [])).toBe(true);
+  });
 });
 
-test.describe("Farmer profiles", () => {
-  const testAddresses = [
-    "GCZZH3WMRJOKK2WI3CHDIT2DOGCGFAUIKTIZRYQT7UOM27KLOXUHHH4D",
-    "GD6BXFHBOSRL5OEDR72DP7KXPNCREQH4G2OX67LOHZOWPCQCIYX73UKU",
-    "GC3PJIVG2S4RBXI2ZKHL4Z67BR6OHWYEUY2GFFSRFXHX7U6ARFYV3FID",
-  ];
+test.describe("Marketplace page loads", () => {
+  test("marketplace page renders", async ({ page }) => {
+    await page.goto("/marketplace");
+    await expect(page.getByText("Marketplace").or(page.getByText("market"))).toBeVisible({ timeout: 15000 });
+  });
+});
 
-  for (const addr of testAddresses) {
-    test(`farmer ${addr.slice(0, 8)} is verified`, async ({ request }) => {
-      const res = await request.get(`/api/profile?address=${addr}`);
-      expect(res.ok()).toBeTruthy();
-      const body = await res.json();
-      expect(body.ok).toBe(true);
-      expect(body.profile).toBeTruthy();
-      expect(body.profile.verified).toBe(true);
+test.describe("Farmer onboarding — create profile + auto-verified", () => {
+  let farmerAddr = "";
+
+  test("create farmer profile and verify auto-verified", async ({ request }) => {
+    test.setTimeout(30000);
+    const { kp, addr } = await createFundedKeypair();
+    farmerAddr = addr;
+
+    const res = await request.post("/api/profile", {
+      data: { address: addr, fullName: "E2E Farmer", farmName: "E2E Farm", region: "E2E", totalYieldKg: 5000 },
     });
-  }
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.profile.verified).toBe(true);
+  });
+
+  test("GET profile returns verified", async ({ request }) => {
+    test.setTimeout(15000);
+    expect(farmerAddr).toBeTruthy();
+    const res = await request.get(`/api/profile?address=${farmerAddr}`);
+    expect(res.ok()).toBeTruthy();
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.profile.verified).toBe(true);
+  });
 });
 
 test.describe("NDVI verification — payment gate", () => {
@@ -60,7 +98,6 @@ test.describe("NDVI verification — payment gate", () => {
         sampleGridSize: 3,
       },
     });
-    // preview mode: no 402, proceeds to processing (may fail on openEO creds, but not 402)
     expect(res.status()).not.toBe(402);
   });
 

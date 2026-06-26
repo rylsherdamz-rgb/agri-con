@@ -341,6 +341,13 @@ impl AgriConContract {
             .unwrap_or(0i128)
     }
 
+    pub fn get_next_nft_id(env: Env) -> u64 {
+        env.storage()
+            .instance()
+            .get(&DataKey::NextId)
+            .unwrap_or(1u64)
+    }
+
     // ══════════════════════════════════════════════════════════════════
     // CROP NFT FUNCTIONS
     // ══════════════════════════════════════════════════════════════════

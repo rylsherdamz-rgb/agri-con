@@ -35,7 +35,8 @@ describe("API Contract", () => {
   });
 
   it("Contract ID is a valid Stellar contract address", () => {
-    const id = "CD3MXXIIZFADYHPT424ONW7AMREY4LOZUKVD5UJ5WSFKSSKCFNDCXLIB";
+    // ponytail: reading a known good contract ID; env-aware tests can import config
+    const id = "CC7CCIMTME2KBV7RRUTXAW6XTPE2FBRYLV3CLKF2YQNU5NHX5NYH37TC";
     assert.ok(id.startsWith("C"));
     assert.equal(id.length, 56);
     assert.ok(/^C[A-Z0-9]{55}$/.test(id));

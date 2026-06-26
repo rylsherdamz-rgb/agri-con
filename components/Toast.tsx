@@ -5,7 +5,10 @@ import { CheckCircle, XCircle, X, Loader2 } from "lucide-react";
 
 type Toast = { id: number; message: string; type: "success" | "error" | "loading" };
 
-const ToastContext = createContext<{ toast: (msg: string, type: Toast["type"]) => void } | null>(null);
+const ToastContext = createContext<{
+  toast: (msg: string, type: Toast["type"]) => number;
+  dismiss: (id: number) => void;
+} | null>(null);
 
 let nextId = 0;
 
@@ -18,12 +21,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     if (type !== "loading") {
       setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
     }
+    return id;
   }, []);
 
   const remove = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
   return (
-    <ToastContext.Provider value={{ toast: add }}>
+    <ToastContext.Provider value={{ toast: add, dismiss: remove }}>
       {children}
       <div className="fixed left-4 top-4 z-50 flex flex-col gap-2">
         {toasts.map((t) => (
@@ -56,3 +60,5 @@ export function useToast() {
   if (!ctx) throw new Error("useToast must be used within ToastProvider");
   return ctx;
 }
+
+export type { Toast };

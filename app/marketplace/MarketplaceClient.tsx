@@ -253,13 +253,13 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
     .reduce((s, l) => s + parseFloat(l.priceXlm ?? "0"), 0);
   const regions = [...new Set(listings.map((l) => l.region).filter(Boolean))];
 
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
 
   async function handleConfirm() {
     if (!address || !checkoutListing) setConfirming(false);
     setConfirming(true);
     setBuyError(null);
-    toast("Processing purchase...", "loading");
+    const loadingId = toast("Processing purchase...", "loading");
     try {
       const { signedTxXdr } = await buyCropNft({
         buyer: address,
@@ -267,6 +267,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
       });
       if (!signedTxXdr) throw new Error("Failed to sign transaction");
       const result = await submitSignedXdr(signedTxXdr);
+      dismiss(loadingId);
       toast("Purchase complete!", "success");
       // Record order in Supabase
       try {
@@ -286,6 +287,8 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Purchase failed";
       setBuyError(msg);
+      dismiss(loadingId);
+      toast(msg, "error");
       console.error("Purchase failed:", e);
     } finally {
       setConfirming(false);

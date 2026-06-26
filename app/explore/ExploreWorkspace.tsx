@@ -111,7 +111,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
 
   // Listing form state
   const [mintStep, setMintStep] = useState<MintStep>("draw");
-  const { toast } = useToast();
+  const { toast, dismiss } = useToast();
   const [parcelName, setParcelName] = useState("");
   const [cropType, setCropType] = useState("rice");
   const [cropTypeCustom, setCropTypeCustom] = useState("");
@@ -262,7 +262,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
   const handleMintSubmit = async () => {
     setMintError(null);
     setMintStep("minting");
-    toast("Preparing mint transaction...", "loading");
+    let loadingToastId: number | null = toast("Preparing mint transaction...", "loading");
 
     try {
       const farmer = address ?? (await connect());
@@ -308,10 +308,11 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
       }
 
       const prepared = await prepareRes.json() as { xdr: string; hash: string; contractId: string };
-      const { signedTxXdr, hash } = await signPreparedXdr(farmer, prepared.xdr);
-      toast("Signing transaction...", "loading");
+      if (loadingToastId !== null) { dismiss(loadingToastId); loadingToastId = null; }
+      loadingToastId = toast("Signing transaction...", "loading");
       const submission = await submitSignedXdr(signedTxXdr);
       const txHash = submission.hash ?? hash;
+      if (loadingToastId !== null) dismiss(loadingToastId);
       toast("Crop listed on-chain!", "success");
       setMintTxHash(txHash);
 
@@ -360,6 +361,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
       clearPolygon();
       setMintStep("done");
     } catch (e) {
+      if (loadingToastId !== null) dismiss(loadingToastId);
       setMintError(e instanceof Error ? e.message : "Listing failed");
       setMintStep("form");
     }

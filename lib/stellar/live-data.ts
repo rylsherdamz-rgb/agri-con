@@ -68,14 +68,32 @@ function getProbeAddress() {
   );
 }
 
-function parseNftIds() {
+let _cachedNextId: number | null = null;
+
+async function parseNftIds(): Promise<number[]> {
+  // 1. If ACTIVE_NFT_IDS is set, use that explicit list
   const raw = process.env.ACTIVE_NFT_IDS ?? process.env.NEXT_PUBLIC_ACTIVE_NFT_IDS ?? null;
   if (raw) {
-    return raw
+    const ids = raw
       .split(",")
-      .map((value) => Number(value.trim()))
-      .filter((value) => Number.isInteger(value) && value > 0);
+      .map((v) => Number(v.trim()))
+      .filter((v) => Number.isInteger(v) && v > 0);
+    if (ids.length > 0) return ids;
   }
+
+  // 2. Read get_next_nft_id from contract to discover all NFTs dynamically
+  if (_cachedNextId === null) {
+    try {
+      const val = await readContract("get_next_nft_id", []);
+      const id = typeof val === "bigint" ? Number(val) : typeof val === "number" ? val : null;
+      if (id !== null && id > 1) _cachedNextId = id;
+    } catch { /* fall through */ }
+  }
+  if (_cachedNextId !== null) {
+    return Array.from({ length: _cachedNextId - 1 }, (_, i) => i + 1);
+  }
+
+  // 3. Fallback: env var max or default 20
   const max = parseInt(process.env.NFT_MAX_ID ?? process.env.NEXT_PUBLIC_NFT_MAX_ID ?? "20", 10);
   return Array.from({ length: max }, (_, i) => i + 1);
 }
@@ -138,7 +156,7 @@ async function readContract(method: string, args: xdr.ScVal[]) {
 }
 
 export async function getLiveListings(): Promise<LiveListing[]> {
-  const ids = parseNftIds();
+  const ids = await parseNftIds();
   return Promise.all(
     ids.map(async (nftId) => {
       let cropType: string | null = null;
