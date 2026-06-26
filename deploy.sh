@@ -151,7 +151,7 @@ echo ""
 echo ""
 echo "  Auto-updating .env.example and .env.local..."
 
-for f in "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env.local"; do
+for f in "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env.local" "$SCRIPT_DIR/.env.production" "$SCRIPT_DIR/.env.preview"; do
   if [ -f "$f" ]; then
     sed -i "s|NEXT_PUBLIC_AGRI_CON_CONTRACT_ID=.*|NEXT_PUBLIC_AGRI_CON_CONTRACT_ID=\"$CONTRACT_ID\"|" "$f"
     sed -i "s|NEXT_PUBLIC_CROP_NFT_CONTRACT_ID=.*|NEXT_PUBLIC_CROP_NFT_CONTRACT_ID=\"$CONTRACT_ID\"|" "$f"

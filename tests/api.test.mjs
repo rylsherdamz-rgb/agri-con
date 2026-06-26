@@ -35,7 +35,7 @@ describe("API Contract", () => {
   });
 
   it("Contract ID is a valid Stellar contract address", () => {
-    const id = "CAEQDFMVO2FNEPVZBA2VNKSURUJ6HTUEFJWOAQVGGIN2DUIHSRB74ZC2";
+    const id = "CD3MXXIIZFADYHPT424ONW7AMREY4LOZUKVD5UJ5WSFKSSKCFNDCXLIB";
     assert.ok(id.startsWith("C"));
     assert.equal(id.length, 56);
     assert.ok(/^C[A-Z0-9]{55}$/.test(id));
