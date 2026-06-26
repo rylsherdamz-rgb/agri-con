@@ -6,7 +6,8 @@ import NFTLifecycleFlow from "@/components/NFTLifecycleFlow";
 import StarRating from "@/components/StarRating";
 import ReviewForm from "@/components/ReviewForm";
 import ReviewList from "@/components/ReviewList";
-import { MapPin, Leaf, ChevronDown, ChevronUp, Sprout, Clock, Shield, MessageSquare, Star } from "lucide-react";
+import { useToast } from "@/components/Toast";
+import { MapPin, Leaf, ChevronDown, ChevronUp, Sprout, Clock, Shield, MessageSquare, Star, Truck } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
 import { useWallet } from "@/components/stellar/wallet-context";
 import type { LiveListing } from "@/lib/stellar/live-data";
@@ -35,6 +36,8 @@ export default function OrderPage() {
   const [reviewingOrder, setReviewingOrder] = useState<{ orderId: string; nftId: number; farmerId: string; parcelName: string } | null>(null);
   const [reviews, setReviews] = useState<Record<string, OrderReview>>({});
   const [farmerRatings, setFarmerRatings] = useState<Record<string, { average: number; count: number }>>({});
+  const [settlingId, setSettlingId] = useState<number | null>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -85,6 +88,28 @@ export default function OrderPage() {
       loadReviews(listings.map((l) => l.farmer ?? ""));
     }
   }, [listings, loadReviews]);
+
+  const handleConfirmDelivery = useCallback(async (nftId: number) => {
+    setSettlingId(nftId);
+    try {
+      const res = await fetch("/api/stellar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "verify_delivery", nftId }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast("Delivery confirmed on-chain! Funds released.", "success");
+        setListings((prev) => prev.map((l) => (l.nftId === nftId ? { ...l, buyable: true } : l)));
+      } else {
+        showToast(data.error || "Failed to verify delivery", "error");
+      }
+    } catch {
+      showToast("Network error confirming delivery", "error");
+    } finally {
+      setSettlingId(null);
+    }
+  }, [showToast]);
 
   useEffect(() => {
     if (!address) return;
@@ -255,6 +280,17 @@ export default function OrderPage() {
                               )}
                             </div>
                           </div>
+                          {/* Settlement button */}
+                          {!l.buyable && (
+                            <button
+                              onClick={() => handleConfirmDelivery(l.nftId)}
+                              disabled={settlingId === l.nftId}
+                              className="btn-primary mt-4 w-full justify-center gap-2 text-sm"
+                            >
+                              <Truck size={14} />
+                              {settlingId === l.nftId ? "Confirming delivery..." : "Confirm Delivery & Release Escrow"}
+                            </button>
+                          )}
                           {/* Review section */}
                           <div className="mt-4 border-t border-stone-200 pt-4">
                             <div className="flex items-center justify-between">

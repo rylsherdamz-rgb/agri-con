@@ -266,8 +266,22 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
         nftId: checkoutListing.nftId,
       });
       if (!signedTxXdr) throw new Error("Failed to sign transaction");
-      await submitSignedXdr(signedTxXdr);
+      const result = await submitSignedXdr(signedTxXdr);
       toast("Purchase complete!", "success");
+      // Record order in Supabase
+      try {
+        await fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            listingId: checkoutListing.nftId,
+            buyerAddress: address,
+            amountUsdc: checkoutListing.priceUsdc,
+            txHash: result.hash || "",
+            status: "escrow",
+          }),
+        });
+      } catch {} // non-critical
       setCheckoutListing(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Purchase failed";

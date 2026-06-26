@@ -9,6 +9,7 @@ import {
   prepareUpsertFarmerProfile,
   prepareVerifyDelivery,
   submitSignedTransaction,
+  submitVerifyDelivery,
 } from "@/lib/stellar/backend";
 
 import { getLiveListings, getLiveFarmerProfiles } from "@/lib/stellar/live-data";
@@ -91,6 +92,19 @@ export async function POST(request: Request) {
         return Response.json(await prepareRecordSatelliteAttestation(body as never));
       case "prepare_record_satellite_attestation_by_oracle":
         return Response.json(await prepareRecordSatelliteAttestationByOracle(body as never));
+      case "verify_delivery": {
+        const nftId = typeof body.nftId === "number" ? body.nftId : NaN;
+        if (isNaN(nftId)) {
+          return Response.json({ error: "nftId is required" }, { status: 400 });
+        }
+        const oracleAddress = process.env.ORACLE_ADDRESS ?? process.env.NEXT_PUBLIC_ORACLE_ADDRESS ?? "";
+        const oracleSecretKey = process.env.ORACLE_SECRET_KEY ?? "";
+        if (!oracleAddress || !oracleSecretKey) {
+          return Response.json({ error: "Oracle not configured" }, { status: 500 });
+        }
+        const result = await submitVerifyDelivery(nftId, oracleAddress, oracleSecretKey);
+        return Response.json({ ok: true, hash: result.hash, status: result.status });
+      }
       case "submit_signed_xdr": {
         const payload = body.payload as Record<string, unknown> | undefined;
         const signedXdr = typeof payload?.signedXdr === "string" ? payload.signedXdr : "";

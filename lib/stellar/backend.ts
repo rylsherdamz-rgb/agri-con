@@ -336,6 +336,37 @@ export async function submitSignedTransaction(signedXdr: string) {
   return sendResult;
 }
 
+export async function submitVerifyDelivery(
+  nftId: number,
+  oracleAddress: string,
+  oracleSecretKey: string,
+) {
+  const server = makeRpcServer();
+  const account = await server.getAccount(oracleAddress);
+  const contractId = getContractId("agriCon");
+  const contract = new Contract(contractId);
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
+  })
+    .addOperation(
+      contract.call("verify_delivery", ...[
+        nativeToScVal(oracleAddress, { type: "address" }),
+        nativeToScVal(BigInt(nftId), { type: "u64" }),
+        nativeToScVal("Delivered", { type: "string" }),
+        nativeToScVal("", { type: "string" }),
+        nativeToScVal(0n, { type: "i128" }),
+        nativeToScVal(0n, { type: "i128" }),
+      ]),
+    )
+    .setTimeout(TimeoutInfinite)
+    .build();
+  const prepared = await server.prepareTransaction(tx);
+  const keypair = Keypair.fromSecret(oracleSecretKey);
+  prepared.sign(keypair);
+  return server.sendTransaction(prepared);
+}
+
 export async function submitRecordSatelliteAttestationByOracle(
   input: RecordSatelliteAttestationByOracleInput & { oracleSecretKey: string },
 ) {
