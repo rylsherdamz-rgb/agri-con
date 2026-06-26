@@ -27,6 +27,7 @@ import CheckOutComponent from "@/components/CheckOutComponent";
 import StarRating from "@/components/StarRating";
 import { useWallet } from "@/components/stellar/wallet-context";
 import { buyCropNft, submitSignedXdr } from "@/lib/stellar/agri-block";
+import { useToast } from "@/components/Toast";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
 function NvdiRing({ value, size = 48 }: { value: number; size?: number }) {
@@ -252,10 +253,13 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
     .reduce((s, l) => s + parseFloat(l.priceUsdc ?? "0"), 0);
   const regions = [...new Set(listings.map((l) => l.region).filter(Boolean))];
 
+  const { toast } = useToast();
+
   async function handleConfirm() {
-    if (!address || !checkoutListing) return;
+    if (!address || !checkoutListing) setConfirming(false);
     setConfirming(true);
     setBuyError(null);
+    toast("Processing purchase...", "loading");
     try {
       const { signedTxXdr } = await buyCropNft({
         buyer: address,
@@ -263,6 +267,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
       });
       if (!signedTxXdr) throw new Error("Failed to sign transaction");
       await submitSignedXdr(signedTxXdr);
+      toast("Purchase complete!", "success");
       setCheckoutListing(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Purchase failed";

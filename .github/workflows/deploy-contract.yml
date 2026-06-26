@@ -1,0 +1,46 @@
+name: Deploy Contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/**"
+      - "deploy.sh"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Stellar CLI
+        run: |
+          curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+          cargo install stellar-cli --locked 2>&1 | tail -5
+
+      - name: Build and Deploy
+        run: |
+          ORACLE_ADDRESS="${{ secrets.ORACLE_ADDRESS }}" \
+          bash deploy.sh 2>&1 | tee deploy_output.txt
+
+      - name: Extract Contract ID
+        id: contract
+        run: |
+          CONTRACT_ID=$(grep -oP 'C[A-Z0-9]{55}' deploy_output.txt | tail -1)
+          echo "contract_id=$CONTRACT_ID" >> $GITHUB_OUTPUT
+          echo "Deployed: $CONTRACT_ID"
+
+      - name: Update .env.example
+        run: |
+          CONTRACT_ID="${{ steps.contract.outputs.contract_id }}"
+          sed -i "s|NEXT_PUBLIC_AGRI_CON_CONTRACT_ID=.*|NEXT_PUBLIC_AGRI_CON_CONTRACT_ID=\"$CONTRACT_ID\"|" .env.example
+          echo "Updated .env.example with $CONTRACT_ID"
+
+      - name: Commit Contract Update
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add .env.example
+          git commit -m "chore: update contract ID to ${{ steps.contract.outputs.contract_id }}" || echo "No changes to commit"
+          git push

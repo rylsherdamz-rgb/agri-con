@@ -16,6 +16,7 @@ import VerificationSection from "@/components/VerificationSection";
 import ParcelList from "@/components/ParcelList";
 import { useWallet } from "@/components/stellar/wallet-context";
 import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
+import { useToast } from "@/components/Toast";
 
 type Parcel = {
   id: number;
@@ -110,6 +111,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
 
   // Listing form state
   const [mintStep, setMintStep] = useState<MintStep>("draw");
+  const { toast } = useToast();
   const [parcelName, setParcelName] = useState("");
   const [cropType, setCropType] = useState("rice");
   const [cropTypeCustom, setCropTypeCustom] = useState("");
@@ -260,6 +262,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
   const handleMintSubmit = async () => {
     setMintError(null);
     setMintStep("minting");
+    toast("Preparing mint transaction...", "loading");
 
     try {
       const farmer = address ?? (await connect());
@@ -306,9 +309,10 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
 
       const prepared = await prepareRes.json() as { xdr: string; hash: string; contractId: string };
       const { signedTxXdr, hash } = await signPreparedXdr(farmer, prepared.xdr);
+      toast("Signing transaction...", "loading");
       const submission = await submitSignedXdr(signedTxXdr);
       const txHash = submission.hash ?? hash;
-
+      toast("Crop listed on-chain!", "success");
       setMintTxHash(txHash);
 
       try {
@@ -443,7 +447,14 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
       </div>
 
       {/* Right panel */}
-      <div className="flex flex-col gap-4 overflow-y-auto">
+      <div className="flex flex-col gap-4 overflow-y-auto max-h-[calc(100vh-8rem)]">
+        {/* === PARCELS LIST (always visible) === */}
+        <ParcelList
+          parcels={parcels}
+          selectedId={selected?.id ?? null}
+          onSelect={handleSelect}
+        />
+
         {/* === DONE === */}
         {mintStep === "done" && (
           <MintSuccess
@@ -516,12 +527,6 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
           />
         )}
 
-        {/* === PARCELS LIST === */}
-        <ParcelList
-          parcels={parcels}
-          selectedId={selected?.id ?? null}
-          onSelect={handleSelect}
-        />
       </div>
     </div>
   );
