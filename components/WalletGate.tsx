@@ -1,13 +1,17 @@
 "use client";
 
 import { useWallet } from "@/components/stellar/wallet-context";
+import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { Wallet, Loader2 } from "lucide-react";
 
+const PUBLIC_PATHS = ["/"];
+
 export default function WalletGate({ children }: { children: ReactNode }) {
   const { address, connect, isBusy, error } = useWallet();
+  const pathname = usePathname();
 
-  if (address) return <>{children}</>;
+  if (address || PUBLIC_PATHS.includes(pathname)) return <>{children}</>;
 
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center px-4 text-center">
