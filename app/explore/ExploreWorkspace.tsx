@@ -308,6 +308,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
       }
 
       const prepared = await prepareRes.json() as { xdr: string; hash: string; contractId: string };
+      const { signedTxXdr, hash } = await signPreparedXdr(farmer, prepared.xdr);
       if (loadingToastId !== null) { dismiss(loadingToastId); loadingToastId = null; }
       loadingToastId = toast("Signing transaction...", "loading");
       const submission = await submitSignedXdr(signedTxXdr);
