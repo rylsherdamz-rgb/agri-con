@@ -12,12 +12,9 @@ export default function MintSuccess({ mintTxHash, mintedNftId, onListAnother }: 
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-farm-100 text-farm-600">
         <CheckCircle size={30} />
       </div>
-      <h3 className="mt-3 text-base font-bold text-stone-800">Listing Submitted!</h3>
+      <h3 className="mt-3 text-base font-bold text-stone-800">Crop Listed!</h3>
       <p className="mt-1 text-sm text-stone-500">
-        Your parcel is listed as <span className="font-semibold text-harvest-600">Pending</span>.
-      </p>
-      <p className="mt-1 text-xs text-stone-400">
-        An admin will attest the NDVI data to complete verification.
+        Your crop is now listed on-chain.
       </p>
       {mintTxHash && (
         <p className="mt-2 font-mono text-[10px] text-stone-400 break-all">

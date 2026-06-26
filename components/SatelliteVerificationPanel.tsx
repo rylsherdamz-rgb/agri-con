@@ -4,7 +4,6 @@ import { useState, useCallback } from "react";
 import { CheckCircle, ChevronDown, ChevronUp, Loader2, XCircle } from "lucide-react";
 
 import { useWallet } from "@/components/stellar/wallet-context";
-import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
 
 type Props = {
   nftId: number;
@@ -77,27 +76,17 @@ export default function SatelliteVerificationPanel({
   onNdviResult,
   compact,
 }: Props) {
-  const { address, connect } = useWallet();
   const [isRunning, setIsRunning] = useState(false);
-  const [isApplying, setIsApplying] = useState(false);
   const [result, setResult] = useState<RunResponse | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-  const [submissionHash, setSubmissionHash] = useState<string | null>(null);
-  const [preparedHash, setPreparedHash] = useState<string | null>(null);
-  const [submissionStatus, setSubmissionStatus] = useState<string | null>(null);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const [autoSubmitHash, setAutoSubmitHash] = useState<string | null>(null);
   const [autoSubmitStatus, setAutoSubmitStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  const busy = isRunning || isApplying;
-  const canApply =
-    result?.ok &&
-    result.buyable &&
-    Boolean(result.preparedRecordAttestation) &&
-    !autoSubmitted;
+  const busy = isRunning;
 
   const fetchSummary = useCallback(
     async (rawBps: number) => {
@@ -127,9 +116,6 @@ export default function SatelliteVerificationPanel({
     setError(null);
     setResult(null);
     setSummary(null);
-    setSubmissionHash(null);
-    setPreparedHash(null);
-    setSubmissionStatus(null);
     setAutoSubmitted(false);
     setAutoSubmitHash(null);
     setAutoSubmitStatus(null);
@@ -143,7 +129,6 @@ export default function SatelliteVerificationPanel({
       const json = (await res.json()) as RunResponse;
       setResult(json);
       if (json.ok) {
-        setPreparedHash(json.preparedRecordAttestation?.hash ?? null);
         if (json.submissionResult) {
           setAutoSubmitted(true);
           setAutoSubmitHash(json.submissionResult.hash);
@@ -156,34 +141,6 @@ export default function SatelliteVerificationPanel({
       setError(e instanceof Error ? e.message : "Failed to run verification");
     } finally {
       setIsRunning(false);
-    }
-  }
-
-  async function applyBuyable() {
-    if (!result?.ok || !result.preparedRecordAttestation) {
-      setError("No prepared attestation transaction is available.");
-      return;
-    }
-
-    setIsApplying(true);
-    setError(null);
-    try {
-      const signer = address ?? (await connect());
-      if (!signer) throw new Error("Connect wallet first.");
-
-      const { signedTxXdr, hash } = await signPreparedXdr(
-        signer,
-        result.preparedRecordAttestation.xdr,
-      );
-      setPreparedHash(hash);
-
-      const submission = await submitSignedXdr(signedTxXdr);
-      setSubmissionHash(submission.hash ?? hash);
-      setSubmissionStatus(submission.status ?? "PENDING");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to set buyability");
-    } finally {
-      setIsApplying(false);
     }
   }
 
@@ -306,8 +263,8 @@ export default function SatelliteVerificationPanel({
             </div>
           )}
 
-          {/* Auto-submission result */}
-          {autoSubmitted ? (
+          {/* Auto-submission status */}
+          {autoSubmitted && (
             <div className="mt-3 rounded-xl border border-farm-200 bg-farm-50 px-4 py-2.5">
               <p className="text-xs font-medium text-farm-700">
                 Attestation recorded on-chain
@@ -315,57 +272,11 @@ export default function SatelliteVerificationPanel({
               <p className="mt-1 text-[11px] font-mono text-stone-500 break-all">
                 {autoSubmitHash}
               </p>
-              {autoSubmitStatus && (
-                <p className="mt-0.5 text-[11px] text-stone-400">
-                  Status: {autoSubmitStatus}
-                </p>
-              )}
             </div>
-          ) : (
-            <>
-              {/* On-chain attestation button (fallback when no oracle key) */}
-              <button
-                onClick={() => applyBuyable()}
-                disabled={busy || !canApply}
-                className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-farm-200 bg-white px-4 py-2 text-sm font-semibold text-farm-700 transition hover:bg-farm-50 active:scale-[0.98] disabled:opacity-40"
-              >
-                {isApplying && <Loader2 size={14} className="animate-spin" />}
-                {isApplying ? "Signing..." : "Record attestation on-chain"}
-              </button>
-
-              {!result.buyable && (
-                <p className="mt-2 text-center text-[11px] text-amber-600">
-                  NDVI below threshold ({result.minNdviBps} bps) — attestation cannot be recorded.
-                </p>
-              )}
-              {!canApply && result?.oracleAddress && result.buyable && (
-                <p className="mt-2 text-center text-[11px] text-stone-400">
-                  Connect your wallet to record attestation.
-                </p>
-              )}
-            </>
           )}
         </div>
       )}
 
-      {/* --- Tx hashes --- */}
-      {preparedHash && (
-        <p className="text-[11px] text-stone-400">
-          Signed:{" "}
-          <span className="font-mono">{shortAddress(preparedHash)}</span>
-        </p>
-      )}
-      {submissionHash && (
-        <p className="text-[11px] text-stone-400">
-          Submitted:{" "}
-          <span className="font-mono">{shortAddress(submissionHash)}</span>
-          {submissionStatus ? (
-            <span className="ml-1 text-farm-600">
-              ({submissionStatus})
-            </span>
-          ) : null}
-        </p>
-      )}
     </div>
   );
 }
