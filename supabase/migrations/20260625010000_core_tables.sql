@@ -97,8 +97,21 @@ create table if not exists public.attestations (
   unique (nft_id, observed_at)
 );
 
--- ── Row Level Security (secure default: no anon access) ─────────────
+-- ── Row Level Security ──────────────────────────────────────────────
 alter table public.farmers      enable row level security;
 alter table public.listings     enable row level security;
 alter table public.orders       enable row level security;
 alter table public.attestations enable row level security;
+
+-- Allow read/write for anon (used by server-side Next.js API routes)
+drop policy if exists "farmers_all" on public.farmers;
+create policy "farmers_all" on public.farmers for all to anon using (true) with check (true);
+
+drop policy if exists "listings_all" on public.listings;
+create policy "listings_all" on public.listings for all to anon using (true) with check (true);
+
+drop policy if exists "orders_all" on public.orders;
+create policy "orders_all" on public.orders for all to anon using (true) with check (true);
+
+drop policy if exists "attestations_all" on public.attestations;
+create policy "attestations_all" on public.attestations for all to anon using (true) with check (true);

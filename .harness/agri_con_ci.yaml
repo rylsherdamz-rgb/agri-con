@@ -55,27 +55,12 @@ pipeline:
                       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "placeholder"
                       NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: "placeholder"
                       NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: "placeholder"
-                      NEXT_PUBLIC_BACKEND_URL: "https://placeholder.backend.com"
                       NEXT_PUBLIC_ORACLE_ADDRESS: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
                       NEXT_PUBLIC_TREASURY_ADDRESS: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
                     command: |
                       npm run lint
                       npx tsc --noEmit
                       npm run build
-              # ── Backend ──
-              - step:
-                  type: Run
-                  name: Backend Prisma Validate
-                  identifier: backend_prisma
-                  spec:
-                    shell: Sh
-                    image: node:20
-                    command: |
-                      cd backend
-                      npm ci || npm install
-                      npx prisma validate
-                      npx prisma generate
-                      node --check server.js
               # ── Soroban contracts ──
               - step:
                   type: Run

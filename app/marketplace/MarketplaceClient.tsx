@@ -70,8 +70,6 @@ function NvdiRing({ value, size = 48 }: { value: number; size?: number }) {
   );
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
-
 function ListingCard({ listing, farmerRating, onBuy }: { listing: LiveListing; farmerRating?: { average: number; count: number }; onBuy: () => void }) {
   const label = listing.parcelName ?? listing.cropType ?? `Parcel #${listing.nftId}`;
   const ndviBps = listing.ndviBps ?? 0;
@@ -188,7 +186,7 @@ export default function MarketplaceClient({ listings }: { listings: LiveListing[
     Promise.all(
       farmers.map(async (fid) => {
         try {
-          const res = await fetch(`${BACKEND_URL}/api/reviews/rating/${encodeURIComponent(fid)}`);
+          const res = await fetch(`/api/reviews/rating/${encodeURIComponent(fid)}`);
           const data = await res.json();
           if (data.ok) return [fid, { average: data.average, count: data.count }] as const;
         } catch {}

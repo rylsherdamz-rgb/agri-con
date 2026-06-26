@@ -29,13 +29,11 @@ export default function ReviewList({ farmerId, compact = false, initialCount }: 
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
-
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/reviews?farmerId=${encodeURIComponent(farmerId)}`);
+        const res = await fetch(`/api/reviews?farmerId=${encodeURIComponent(farmerId)}`);
         const data = await res.json();
         if (!cancelled && data.ok) setReviews(data.reviews);
       } catch {} finally {

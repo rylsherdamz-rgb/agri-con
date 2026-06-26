@@ -60,15 +60,14 @@ Respond ONLY with valid JSON — no markdown, no code fences, no extra text:
       }),
     });
 
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      return Response.json({ error: `NVIDIA API returned ${res.status}: ${errBody.slice(0, 200)}` }, { status: 502 });
+    }
+
     const json = (await res.json()) as {
       choices?: Array<{ message?: { content?: string } }>;
-      error?: { message: string };
     };
-
-    if (!res.ok || json.error) {
-      const msg = json.error?.message ?? `NVIDIA API returned ${res.status}`;
-      return Response.json({ error: msg }, { status: 502 });
-    }
 
     const raw = (json.choices?.[0]?.message?.content ?? "").trim();
     let parsed: { summary: string; recommendation: string; healthLabel: string };

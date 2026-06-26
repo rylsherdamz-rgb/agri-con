@@ -19,15 +19,13 @@ export default function ReviewForm({ orderId, farmerId, reviewer, parcelName, on
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (rating < 1) return;
     setSubmitting(true);
     setError("");
     try {
-      const res = await fetch(`${BACKEND_URL}/api/reviews`, {
+      const res = await fetch("/api/reviews", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId, reviewer, farmerId, rating, comment: comment.trim() || undefined }),

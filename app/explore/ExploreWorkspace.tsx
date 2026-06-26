@@ -17,8 +17,6 @@ import ParcelList from "@/components/ParcelList";
 import { useWallet } from "@/components/stellar/wallet-context";
 import { signPreparedXdr, submitSignedXdr } from "@/lib/stellar/agri-block";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
-
 type Parcel = {
   id: number;
   title: string;
@@ -332,7 +330,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
           buyable: false,
         }]);
 
-        await fetch(`${BACKEND_URL}/api/listings`, {
+        await fetch("/api/listings", {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({

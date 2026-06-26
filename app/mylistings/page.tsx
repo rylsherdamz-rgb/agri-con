@@ -9,8 +9,6 @@ import {
 } from "lucide-react";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
-
 function NvdiBar({ value }: { value: number }) {
   const pct = Math.min(value / 100, 100);
   const color = pct > 70 ? "#16a34a" : pct > 40 ? "#f59e0b" : "#dc2626";
@@ -117,7 +115,7 @@ export default function MyListingsPage() {
       const backendListings: LiveListing[] = [];
       try {
         const res = await fetch(
-          `${BACKEND_URL}/api/listings?farmerId=${encodeURIComponent(address!)}`,
+          `/api/listings?farmerId=${encodeURIComponent(address!)}`,
           { signal: ctrl.signal },
         );
         const data = await res.json();

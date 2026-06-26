@@ -35,7 +35,6 @@ jobs:
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "placeholder"
       NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: "placeholder"
       NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID: "placeholder"
-      NEXT_PUBLIC_BACKEND_URL: "https://placeholder.backend.com"
       NEXT_PUBLIC_ORACLE_ADDRESS: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
       NEXT_PUBLIC_TREASURY_ADDRESS: "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
     steps:
@@ -58,37 +57,6 @@ jobs:
 
       - name: Build
         run: npm run build
-
-  # ──────────────────────────────────────────────────────────────
-  # Backend: Express + Prisma — install, validate schema, generate client
-  # ──────────────────────────────────────────────────────────────
-  backend:
-    name: Backend (Express + Prisma)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci || npm install
-
-      - name: Validate Prisma schema
-        run: npx prisma validate
-
-      - name: Generate Prisma client
-        run: npx prisma generate
-
-      - name: Syntax check server
-        run: node --check server.js
 
   # ──────────────────────────────────────────────────────────────
   # Contracts: Soroban / Rust — fmt, clippy, build wasm, test

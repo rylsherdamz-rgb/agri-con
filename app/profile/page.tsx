@@ -9,8 +9,6 @@ import { CheckCircle, XCircle, User, Upload, Loader2, BadgeCheck, Plus, ShieldAl
 import { truncate } from "@/lib/utils/truncate";
 import Link from "next/link";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
-
 type FarmerProfile = {
   id: string;
   fullName: string;
@@ -40,7 +38,7 @@ export default function ProfilePage() {
     async function fetchProfile() {
       setLoading(true);
       try {
-        const res = await fetch(`${BACKEND_URL}/api/profile?address=${encodeURIComponent(address!)}`, {
+        const res = await fetch(`/api/profile?address=${encodeURIComponent(address!)}`, {
           signal: ctrl.signal,
         });
         const data = await res.json();
@@ -97,7 +95,7 @@ export default function ProfilePage() {
     if (!address) return;
     setSaving(true);
     try {
-      const res = await fetch(`${BACKEND_URL}/api/profile`, {
+      const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -395,7 +393,7 @@ export default function ProfilePage() {
 function StarRatingComponent({ farmerId }: { farmerId: string }) {
   const [rating, setRating] = useState<{ average: number; count: number } | null>(null);
   useEffect(() => {
-    fetch(`${BACKEND_URL}/api/reviews/rating/${encodeURIComponent(farmerId)}`)
+    fetch(`/api/reviews/rating/${encodeURIComponent(farmerId)}`)
       .then((r) => r.json())
       .then((d) => { if (d.ok) setRating(d); })
       .catch(() => {});

@@ -11,8 +11,6 @@ import { truncate } from "@/lib/utils/truncate";
 import { useWallet } from "@/components/stellar/wallet-context";
 import type { LiveListing } from "@/lib/stellar/live-data";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL ?? "https://agri-con-backend.onrender.com";
-
 type OrderReview = {
   id: string;
   orderId: string;
@@ -73,7 +71,7 @@ export default function OrderPage() {
     await Promise.all(
       unique.map(async (fid) => {
         try {
-          const r = await fetch(`${BACKEND_URL}/api/reviews/rating/${encodeURIComponent(fid)}`);
+          const r = await fetch(`/api/reviews/rating/${encodeURIComponent(fid)}`);
           const d = await r.json();
           if (d.ok) ratings[fid] = { average: d.average, count: d.count };
         } catch {}
@@ -93,7 +91,7 @@ export default function OrderPage() {
     let cancelled = false;
     async function loadUserOrders() {
       try {
-        const res = await fetch(`${BACKEND_URL}/api/orders?buyerAddress=${encodeURIComponent(address as string)}`);
+        const res = await fetch(`/api/orders?buyerAddress=${encodeURIComponent(address as string)}`);
         const data = await res.json();
         if (!cancelled && data.ok && Array.isArray(data.orders)) {
           const reviewMap: Record<string, OrderReview> = {};
