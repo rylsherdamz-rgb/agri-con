@@ -66,7 +66,6 @@ export type RecordSatelliteAttestationInput = {
   observedAt: number;
   ndviBps: number;
   minNdviBps: number;
-  buyable: boolean;
   bboxHash: string;
   reportHash: string;
   source: string;
@@ -382,7 +381,6 @@ export async function recordSatelliteAttestation(
       nativeToScVal(input.observedAt, { type: "u64" }),
       nativeToScVal(input.ndviBps, { type: "u64" }),
       nativeToScVal(input.minNdviBps, { type: "u64" }),
-      nativeToScVal(input.buyable, { type: "bool" }),
       nativeToScVal(input.bboxHash, { type: "string" }),
       nativeToScVal(input.reportHash, { type: "string" }),
       nativeToScVal(input.source, { type: "string" }),

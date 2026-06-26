@@ -247,14 +247,6 @@ export default function SatelliteVerificationPanel({
                 <span>Source</span>
                 <span className="font-mono">{result.attestation.source}</span>
               </div>
-              <div className="flex justify-between gap-2">
-                <span>Admin</span>
-                <span className="font-mono">
-                  {result.adminAddress
-                    ? shortAddress(result.adminAddress)
-                    : "missing"}
-                </span>
-              </div>
             </div>
           )}
 

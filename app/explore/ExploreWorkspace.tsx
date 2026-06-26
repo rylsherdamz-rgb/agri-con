@@ -116,7 +116,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
   const [cropType, setCropType] = useState("rice");
   const [cropTypeCustom, setCropTypeCustom] = useState("");
   const [quantityKg, setQuantityKg] = useState("");
-  const [priceXlm, setPriceUsdc] = useState("");
+  const [priceXlm, setPriceXlm] = useState("");
   const [totalYieldKg, setTotalYieldKg] = useState("");
   const [region, setRegion] = useState("");
   const [harvestDate, setHarvestDate] = useState(() => {
@@ -139,7 +139,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
     setCropType("rice");
     setCropTypeCustom("");
     setQuantityKg("");
-    setPriceUsdc("");
+    setPriceXlm("");
     setTotalYieldKg("");
     setRegion("");
     setHarvestDate(() => {
@@ -488,7 +488,7 @@ export default function ExploreWorkspace({ parcels: serverParcels }: { parcels: 
             onCropTypeChange={setCropType}
             onCropTypeCustomChange={setCropTypeCustom}
             onQuantityChange={setQuantityKg}
-            onPriceChange={setPriceUsdc}
+            onPriceChange={setPriceXlm}
             onTotalYieldChange={setTotalYieldKg}
             onRegionChange={setRegion}
             onHarvestDateChange={setHarvestDate}
