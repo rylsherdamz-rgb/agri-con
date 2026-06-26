@@ -5,7 +5,7 @@ import { useWallet } from "@/components/stellar/wallet-context";
 import NavigationBar from "@/components/NavigationBar";
 import StarRating from "@/components/StarRating";
 import ReviewList from "@/components/ReviewList";
-import { CheckCircle, XCircle, User, Upload, Loader2, BadgeCheck, Plus, ShieldAlert, Sprout, Star, MessageSquare } from "lucide-react";
+import { CheckCircle, XCircle, User, Loader2, BadgeCheck, Plus, ShieldAlert, Sprout, MessageSquare } from "lucide-react";
 import { truncate } from "@/lib/utils/truncate";
 import Link from "next/link";
 
@@ -308,28 +308,6 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              <div className="card-farm p-6">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-wider text-stone-600">Government ID</h3>
-                {uploadMsg && (
-                  <p className={`mb-3 rounded-lg px-3 py-2 text-xs font-medium ${uploadMsg.includes("success") ? "bg-farm-50 text-farm-700" : "bg-harvest-50 text-harvest-700"}`}>
-                    {uploadMsg}
-                  </p>
-                )}
-                <label className="flex cursor-pointer flex-col items-center gap-3 rounded-xl border border-dashed border-stone-300 bg-stone-50 px-4 py-8 transition hover:border-farm-400 hover:bg-farm-50/30">
-                  <Upload size={22} className="text-stone-400" />
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-stone-600">
-                      {uploading ? "Uploading..." : "Upload ID Document"}
-                    </p>
-                    <p className="text-xs text-stone-400">PNG, JPG, PDF — max 10MB</p>
-                  </div>
-                  <input type="file" accept="image/png,image/jpeg,application/pdf" className="hidden"
-                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleIdUpload(f); }} />
-                </label>
-                {profile?.idDocPath && (
-                  <p className="mt-2 text-xs text-stone-400">Uploaded: {truncate(profile.idDocPath, 24)}</p>
-                )}
-              </div>
             </div>
 
             <div className="space-y-4">
@@ -357,7 +335,7 @@ export default function ProfilePage() {
                   <div className="mt-3 rounded-xl bg-harvest-50 px-4 py-3 text-center">
                     <ShieldAlert size={24} className="mx-auto mb-1 text-harvest-600" />
                     <p className="text-sm font-semibold text-harvest-800">Awaiting Verification</p>
-                    <p className="text-xs text-harvest-600">Only verified farmers can list crops. Upload your ID above.</p>
+                    <p className="text-xs text-harvest-600">Admin verification is pending. You can still list crops.</p>
                   </div>
                 ) : (
                   <div className="mt-3 rounded-xl bg-stone-50 px-4 py-3 text-center">
