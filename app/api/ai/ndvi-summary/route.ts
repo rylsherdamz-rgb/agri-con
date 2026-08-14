@@ -1,6 +1,7 @@
 import { nvidiaFetch, getNvidiaConfig } from "@/lib/nvidia-fetch";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
@@ -8,9 +9,11 @@ export async function POST(request: Request) {
       ndviBps: number;
       cropType?: string;
       region?: string;
+      minNdviBps?: number;
     };
 
     const { ndviBps, cropType, region } = body;
+    const minNdviBps = body.minNdviBps ?? 3500;
 
     if (ndviBps === undefined || ndviBps === null) {
       return Response.json({ error: "ndviBps is required" }, { status: 400 });
@@ -33,15 +36,17 @@ export async function POST(request: Request) {
 
     const { apiKey, model } = config;
 
-    const prompt = `You are an agricultural analyst. Given the following satellite NDVI data for a crop parcel, explain what it means in plain language (2-3 sentences max) and give a short harvest recommendation.
+    const prompt = `You are an agricultural analyst. Given the following satellite NDVI data for a crop parcel, explain what it means in plain language (2-3 sentences max), give a short harvest recommendation, and judge whether the crop is profitable to sell.
 
 NDVI: ${ndviPercent} (${ndviBps} basis points)
 Vegetation health classification: ${vegHealth}
 ${cropType ? `Crop type: ${cropType}` : ""}
 ${region ? `Region: ${region}` : ""}
 
+Profitability rules of thumb: NDVI >= 0.60 is dense healthy vegetation and generally profitable; 0.40-0.60 is moderate and may be profitable; 0.20-0.40 is sparse and risky; below 0.20 is likely a loss. Factor in whether NDVI is above or below the minimum threshold of ${minNdviBps / 10000}.
+
 Respond ONLY with valid JSON — no markdown, no code fences, no extra text:
-{"summary":"plain language explanation","recommendation":"actionable recommendation","healthLabel":"Healthy"}`;
+{"summary":"plain language explanation","recommendation":"actionable recommendation","healthLabel":"Healthy","profitability":"Profitable | Risky | Not profitable","profitabilityReason":"one sentence why"}`;
 
     const res = await nvidiaFetch("/chat/completions", {
       method: "POST",
@@ -58,7 +63,7 @@ Respond ONLY with valid JSON — no markdown, no code fences, no extra text:
         max_tokens: 300,
         temperature: 0.3,
       }),
-    });
+    }, 0);
 
     if (!res.ok) {
       const errBody = await res.text().catch(() => "");
@@ -70,7 +75,7 @@ Respond ONLY with valid JSON — no markdown, no code fences, no extra text:
     };
 
     const raw = (json.choices?.[0]?.message?.content ?? "").trim();
-    let parsed: { summary: string; recommendation: string; healthLabel: string };
+    let parsed: { summary: string; recommendation: string; healthLabel: string; profitability?: string; profitabilityReason?: string };
     try {
       const cleaned = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(cleaned);
@@ -78,7 +83,16 @@ Respond ONLY with valid JSON — no markdown, no code fences, no extra text:
       return Response.json({ error: "NVIDIA API returned invalid JSON", raw }, { status: 502 });
     }
 
-    return Response.json({ ok: true, ...parsed, ndviBps, ndviPercent, vegHealth, cropType, region });
+    return Response.json({
+      ok: true,
+      ...parsed,
+      ndviBps,
+      ndviPercent,
+      vegHealth,
+      cropType,
+      region,
+      minNdviBps,
+    });
   } catch (err) {
     console.error("NDVI summary error:", err);
     return Response.json(

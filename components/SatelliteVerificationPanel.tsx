@@ -49,6 +49,8 @@ type SummaryResponse = {
   summary: string;
   recommendation: string;
   healthLabel: string;
+  profitability?: string;
+  profitabilityReason?: string;
   ndviPercent: string;
   vegHealth: string;
 };
@@ -77,6 +79,7 @@ export default function SatelliteVerificationPanel({
   const [result, setResult] = useState<RunResponse | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const [autoSubmitHash, setAutoSubmitHash] = useState<string | null>(null);
   const [autoSubmitStatus, setAutoSubmitStatus] = useState<string | null>(null);
@@ -94,23 +97,27 @@ export default function SatelliteVerificationPanel({
     async (rawBps: number) => {
       setSummaryLoading(true);
       setSummary(null);
+      setSummaryError(null);
       try {
         const res = await fetch("/api/ai/ndvi-summary", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ ndviBps: rawBps }),
+          body: JSON.stringify({ ndviBps: rawBps, minNdviBps }),
         });
-        if (res.ok) {
-          const data = (await res.json()) as SummaryResponse;
-          setSummary(data);
+        if (!res.ok) {
+          const err = (await res.json().catch(() => null)) as { error?: string } | null;
+          setSummaryError(err?.error ?? `Summary failed (${res.status})`);
+          return;
         }
+        const data = (await res.json()) as SummaryResponse;
+        setSummary(data);
       } catch {
-        // Non-critical — summary display fails silently.
+        setSummaryError("Summary unavailable");
       } finally {
         setSummaryLoading(false);
       }
     },
-    [],
+    [minNdviBps],
   );
 
   async function run() {
@@ -290,18 +297,38 @@ export default function SatelliteVerificationPanel({
           </div>
 
           {/* AI Summary */}
-          {(summary || summaryLoading) && (
+          {(summary || summaryLoading || summaryError) && (
             <div className="mt-2.5 rounded-lg border border-stone-200 bg-white px-3 py-2.5">
               {summaryLoading ? (
                 <div className="flex items-center gap-2 text-xs text-stone-400">
                   <Loader2 size={12} className="animate-spin" />
                   Analyzing satellite data...
                 </div>
+              ) : summaryError ? (
+                <p className="text-xs text-red-600">{summaryError}</p>
               ) : summary ? (
                 <>
-                  <p className="text-xs leading-relaxed text-stone-700">
+                  {summary.profitability && (
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                        summary.profitability.toLowerCase().startsWith("profit")
+                          ? "bg-emerald-100 text-emerald-700"
+                          : summary.profitability.toLowerCase().startsWith("risky")
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {summary.profitability}
+                    </span>
+                  )}
+                  <p className="mt-1.5 text-xs leading-relaxed text-stone-700">
                     {summary.summary}
                   </p>
+                  {summary.profitabilityReason && (
+                    <p className="mt-1 text-[11px] text-stone-500">
+                      {summary.profitabilityReason}
+                    </p>
+                  )}
                   <p className="mt-1.5 text-[11px] font-medium text-farm-700">
                     {summary.recommendation}
                   </p>
