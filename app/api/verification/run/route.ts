@@ -161,23 +161,40 @@ function sha256Hex(value: string) {
 }
 
 async function decodeNdviMeanFromGeoTiff(input: ArrayBuffer) {
-  const sharpModule = await import("sharp");
-  const sharp = sharpModule.default;
-  const { data, info } = await sharp(Buffer.from(input))
-    .raw({ depth: "float" })
-    .toBuffer({ resolveWithObject: true });
+  // Sentinel Hub openEO returns a single-band float32 GeoTIFF. Decode it with a
+  // real GeoTIFF parser (geotiff.js) — image libraries like sharp/libvips do not
+  // read scientific float rasters correctly and silently produce near-zero data.
+  const { fromArrayBuffer } = await import("geotiff");
+  const tiff = await fromArrayBuffer(input);
+  const image = await tiff.getImage();
 
-  const floatValues = new Float32Array(data.buffer, data.byteOffset, data.byteLength / 4);
+  // GDAL nodata tag, if present. Sentinel Hub commonly uses 0 for no-observation.
+  const fileDirectory = image.getFileDirectory() as { GDAL_NODATA?: string };
+  const declaredNoData =
+    fileDirectory?.GDAL_NODATA != null ? Number.parseFloat(fileDirectory.GDAL_NODATA) : null;
+
+  // Read the NDVI band (band 0). readRasters returns one typed array per band.
+  const rasters = (await image.readRasters()) as unknown as ArrayLike<number>[];
+  const band = rasters[0];
+  if (!band || band.length === 0) {
+    return null;
+  }
+
   let sum = 0;
   let count = 0;
 
-  const channels = Math.max(info.channels, 1);
-  for (let index = 0; index < floatValues.length; index += channels) {
-    const value = floatValues[index];
-    if (Number.isFinite(value) && value >= -1 && value <= 1) {
-      sum += value;
-      count += 1;
-    }
+  for (let index = 0; index < band.length; index += 1) {
+    const value = band[index];
+
+    // Skip non-finite, out-of-range, and nodata pixels. Excluding exact 0 as
+    // nodata prevents cloud / no-observation pixels from dragging the mean to 0.
+    if (!Number.isFinite(value)) continue;
+    if (value < -1 || value > 1) continue;
+    if (declaredNoData != null && value === declaredNoData) continue;
+    if (value === 0) continue;
+
+    sum += value;
+    count += 1;
   }
 
   if (count === 0) {
