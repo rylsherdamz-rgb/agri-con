@@ -183,15 +183,20 @@ async function decodeNdviMeanFromGeoTiff(input: ArrayBuffer) {
   let sum = 0;
   let count = 0;
 
+  // Sentinel Hub commonly encodes no-observation as 0 when no explicit GDAL
+  // nodata tag is present. Only treat exact 0 as nodata in that case; if a
+  // nodata tag IS declared, trust it and keep genuine near-zero (bare-soil)
+  // NDVI values so the mean reflects real low-vegetation land instead of
+  // discarding half the scene.
+  const zeroIsNoData = declaredNoData == null || declaredNoData === 0;
+
   for (let index = 0; index < band.length; index += 1) {
     const value = band[index];
 
-    // Skip non-finite, out-of-range, and nodata pixels. Excluding exact 0 as
-    // nodata prevents cloud / no-observation pixels from dragging the mean to 0.
     if (!Number.isFinite(value)) continue;
     if (value < -1 || value > 1) continue;
     if (declaredNoData != null && value === declaredNoData) continue;
-    if (value === 0) continue;
+    if (zeroIsNoData && value === 0) continue;
 
     sum += value;
     count += 1;
@@ -261,10 +266,18 @@ export async function POST(req: Request) {
     const sampleGridSize = clampSampleGridSize(body.sampleGridSize);
 
     // Process graph:
-    // - load a small NDVI raster over the selected bbox
-    // - save as GeoTIFF, which the synchronous backend documents as supported
-    // The synchronous Sentinel Hub openEO backend supports single-slice raster operations,
-    // but not the spatial aggregation processes we originally attempted to use.
+    // - load a Sentinel-2 datacube (B04/B08) over the bbox and time window
+    // - compute NDVI per acquisition
+    // - REDUCE the temporal dimension to a single cloud-robust NDVI band
+    //   (max-NDVI compositing). This is the critical step: without reducing
+    //   over time, saving to GeoTIFF stacks every date as a separate band, so
+    //   decoding band 0 only reads the first (often cloudy / no-observation)
+    //   acquisition — which dragged the NDVI mean to ~0.
+    // - save the single-band result as GeoTIFF.
+    //
+    // `spatial_extent` only accepts west/south/east/north/crs — width/height are
+    // not valid here (they belong to resample_spatial), so they were previously
+    // silently ignored.
     const processBody = {
       process: {
         process_graph: {
@@ -273,9 +286,10 @@ export async function POST(req: Request) {
             arguments: {
               id: "sentinel-2-l2a",
               spatial_extent: {
-                ...body.bbox,
-                width: sampleGridSize,
-                height: sampleGridSize,
+                west: body.bbox.west,
+                south: body.bbox.south,
+                east: body.bbox.east,
+                north: body.bbox.north,
               },
               temporal_extent: [temporalExtent.start, temporalExtent.end],
               bands: ["B04", "B08"],
@@ -290,9 +304,28 @@ export async function POST(req: Request) {
               target_band: "NDVI",
             },
           },
+          // Collapse the temporal dimension into one composite NDVI band.
+          // max-NDVI compositing suppresses clouds/shadows (which lower NDVI)
+          // and yields the greenest observation per pixel over the window.
+          reducetime: {
+            process_id: "reduce_dimension",
+            arguments: {
+              data: { from_node: "ndvi1" },
+              dimension: "t",
+              reducer: {
+                process_graph: {
+                  max1: {
+                    process_id: "max",
+                    arguments: { data: { from_parameter: "data" } },
+                    result: true,
+                  },
+                },
+              },
+            },
+          },
           save: {
             process_id: "save_result",
-            arguments: { data: { from_node: "ndvi1" }, format: "GTIFF" },
+            arguments: { data: { from_node: "reducetime" }, format: "GTIFF" },
             result: true,
           },
         },
